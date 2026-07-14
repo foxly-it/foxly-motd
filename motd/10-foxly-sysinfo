@@ -4,12 +4,30 @@ set -u
 CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-/etc/default/foxly-motd}"
 CACHE_FILE="${FOXLY_MOTD_CACHE_FILE:-/var/cache/foxly-motd/packages}"
 STATE_DIR="${FOXLY_MOTD_STATE_DIR:-/var/lib/foxly-motd}"
+MOTD_LANGUAGE=auto
 COLOR_MODE=always
 SHOW_DOCKER=yes
 SHOW_PACKAGE_UPDATES=yes
 SHOW_UPDATE_NOTICE=yes
 # shellcheck source=/dev/null
 [[ -r "$CONFIG_FILE" ]] && . "$CONFIG_FILE"
+
+resolve_language() {
+    local locale_hint="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" locale_lower
+    if [[ -z "$locale_hint" && -r /etc/default/locale ]]; then
+        locale_hint=$(sed -n 's/^LANG=//p' /etc/default/locale | head -n 1)
+        locale_hint=${locale_hint#\"}
+        locale_hint=${locale_hint%\"}
+    fi
+    locale_lower=$(printf '%s' "$locale_hint" | tr '[:upper:]' '[:lower:]')
+    case "$MOTD_LANGUAGE" in
+        de | en) printf '%s\n' "$MOTD_LANGUAGE" ;;
+        auto) [[ "$locale_lower" == de* ]] && printf 'de\n' || printf 'en\n' ;;
+        *) printf 'en\n' ;;
+    esac
+}
+
+LANG_CODE=$(resolve_language)
 
 for flag in SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_UPDATE_NOTICE; do
     [[ "${!flag}" == yes || "${!flag}" == no ]] || printf -v "$flag" no
@@ -25,7 +43,7 @@ if [[ "$COLOR_MODE" == never ]]; then
     COLOR="" GREEN="" YELLOW="" RESET=""
 fi
 
-de_uptime() {
+format_uptime() {
     local seconds=$1 weeks days hours minutes result=""
     weeks=$((seconds / 604800))
     seconds=$((seconds % 604800))
@@ -33,13 +51,24 @@ de_uptime() {
     seconds=$((seconds % 86400))
     hours=$((seconds / 3600))
     minutes=$(((seconds % 3600) / 60))
-    if ((weeks)); then
-        ((weeks == 1)) && result="1 Woche" || result="$weeks Wochen"
-        ((days)) && result+=", $days $([[ $days -eq 1 ]] && printf Tag || printf Tage)"
+    if [[ "$LANG_CODE" == de ]]; then
+        if ((weeks)); then
+            ((weeks == 1)) && result="1 Woche" || result="$weeks Wochen"
+            ((days)) && result+=", $days $([[ $days -eq 1 ]] && printf Tag || printf Tage)"
+        else
+            ((days)) && result="$days $([[ $days -eq 1 ]] && printf Tag || printf Tage)"
+            ((hours)) && result+="${result:+, }$hours $([[ $hours -eq 1 ]] && printf Stunde || printf Stunden)"
+            ((minutes || ${#result} == 0)) && result+="${result:+, }$minutes $([[ $minutes -eq 1 ]] && printf Minute || printf Minuten)"
+        fi
     else
-        ((days)) && result="$days $([[ $days -eq 1 ]] && printf Tag || printf Tage)"
-        ((hours)) && result+="${result:+, }$hours $([[ $hours -eq 1 ]] && printf Stunde || printf Stunden)"
-        ((minutes || ${#result} == 0)) && result+="${result:+, }$minutes $([[ $minutes -eq 1 ]] && printf Minute || printf Minuten)"
+        if ((weeks)); then
+            result="$weeks $([[ $weeks -eq 1 ]] && printf week || printf weeks)"
+            ((days)) && result+=", $days $([[ $days -eq 1 ]] && printf day || printf days)"
+        else
+            ((days)) && result="$days $([[ $days -eq 1 ]] && printf day || printf days)"
+            ((hours)) && result+="${result:+, }$hours $([[ $hours -eq 1 ]] && printf hour || printf hours)"
+            ((minutes || ${#result} == 0)) && result+="${result:+, }$minutes $([[ $minutes -eq 1 ]] && printf minute || printf minutes)"
+        fi
     fi
     printf '%s\n' "$result"
 }
@@ -85,11 +114,43 @@ disk_free=$(df -P / 2> /dev/null | awk 'NR==2 {printf "%.0f%%", $4*100/$2}')
 processes=$(ps -e --no-headers 2> /dev/null | wc -l | tr -d ' ')
 uptime_seconds=$(awk '{print int($1)}' /proc/uptime 2> /dev/null || printf 0)
 
-printf '%sSysteminformationen am %s%s\n\n' "$COLOR" "$(date '+%d.%m.%Y %H:%M:%S')" "$RESET"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" 'IP-Adresse(n):' "$RESET" "$(get_ipv4s)" "$COLOR" 'Systemlaufzeit:' "$RESET" "$(de_uptime "$uptime_seconds")"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" 'Systemlast:' "$RESET" "${load_pct/./,}" "$COLOR" 'Prozesse:' "$RESET" "$processes"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" 'RAM benutzt:' "$RESET" "${memory_usage/./,}" "$COLOR" 'Swap benutzt:' "$RESET" "${swap_usage/./,}"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" 'Freier Speicherplatz:' "$RESET" "$disk_free" "$COLOR" 'Aktueller Nutzer:' "$RESET" "$(id -un)"
+if [[ "$LANG_CODE" == de ]]; then
+    heading="Systeminformationen am"
+    ip_label="IP-Adresse(n):"
+    uptime_label="Systemlaufzeit:"
+    load_label="Systemlast:"
+    processes_label="Prozesse:"
+    memory_label="RAM benutzt:"
+    swap_label="Swap benutzt:"
+    disk_label="Freier Speicherplatz:"
+    user_label="Aktueller Nutzer:"
+    docker_title="Docker-Container"
+    docker_active="aktiv"
+    docker_stopped="gestoppt"
+else
+    heading="System information at"
+    ip_label="IP address(es):"
+    uptime_label="Uptime:"
+    load_label="System load:"
+    processes_label="Processes:"
+    memory_label="Memory used:"
+    swap_label="Swap used:"
+    disk_label="Free disk space:"
+    user_label="Current user:"
+    docker_title="Docker containers"
+    docker_active="running"
+    docker_stopped="stopped"
+fi
+
+localize_number() {
+    [[ "$LANG_CODE" == de ]] && printf '%s\n' "${1/./,}" || printf '%s\n' "$1"
+}
+
+printf '%s%s %s%s\n\n' "$COLOR" "$heading" "$(date '+%d.%m.%Y %H:%M:%S')" "$RESET"
+printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$ip_label" "$RESET" "$(get_ipv4s)" "$COLOR" "$uptime_label" "$RESET" "$(format_uptime "$uptime_seconds")"
+printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$load_label" "$RESET" "$(localize_number "$load_pct")" "$COLOR" "$processes_label" "$RESET" "$processes"
+printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$memory_label" "$RESET" "$(localize_number "$memory_usage")" "$COLOR" "$swap_label" "$RESET" "$(localize_number "$swap_usage")"
+printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$disk_label" "$RESET" "$disk_free" "$COLOR" "$user_label" "$RESET" "$(id -un)"
 printf '%-51s %s%-18s%s %s\n' '' "$COLOR" 'Remote Host:' "$RESET" "$(remote_host)"
 printf '\n'
 
@@ -97,12 +158,16 @@ if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
     docker_rows=$(timeout 2 docker ps -a --format '{{.State}}' 2> /dev/null)
     docker_status=$?
     if ((docker_status != 0)); then
-        printf '%s🐳 Docker:%s keine Berechtigung oder Dienst nicht erreichbar\n\n' "$YELLOW" "$RESET"
+        if [[ "$LANG_CODE" == de ]]; then
+            printf '%s🐳 Docker:%s keine Berechtigung oder Dienst nicht erreichbar\n\n' "$YELLOW" "$RESET"
+        else
+            printf '%s🐳 Docker:%s permission denied or service unavailable\n\n' "$YELLOW" "$RESET"
+        fi
     else
         running=$(printf '%s\n' "$docker_rows" | awk '$1 == "running" {count++} END {print count+0}')
         stopped=$(printf '%s\n' "$docker_rows" | awk '$1 == "exited" || $1 == "dead" {count++} END {print count+0}')
-        printf '%s🐳 Docker-Container%s  %saktiv: %s%s · %sgestoppt: %s%s\n\n' \
-            "$COLOR" "$RESET" "$GREEN" "$running" "$RESET" "$YELLOW" "$stopped" "$RESET"
+        printf '%s🐳 %s%s  %s%s: %s%s · %s%s: %s%s\n\n' \
+            "$COLOR" "$docker_title" "$RESET" "$GREEN" "$docker_active" "$running" "$RESET" "$YELLOW" "$docker_stopped" "$stopped" "$RESET"
     fi
 fi
 
@@ -113,14 +178,26 @@ if [[ "$SHOW_PACKAGE_UPDATES" == yes ]]; then
     packages=$(cache_value packages)
     if [[ "$updates" =~ ^[0-9]+$ ]]; then
         if ((updates)); then
-            printf '%s📦 %s Paket-Updates verfügbar, davon %s Sicherheitsupdates.%s\n' "$COLOR" "$updates" "${security:-0}" "$RESET"
+            if [[ "$LANG_CODE" == de ]]; then
+                printf '%s📦 %s Paket-Updates verfügbar, davon %s Sicherheitsupdates.%s\n' "$COLOR" "$updates" "${security:-0}" "$RESET"
+            else
+                printf '%s📦 %s package updates available, including %s security updates.%s\n' "$COLOR" "$updates" "${security:-0}" "$RESET"
+            fi
             [[ -n "$packages" ]] && printf '   %s\n' "$packages"
         else
-            printf '%s📦 Keine Paket-Updates im letzten Cache-Lauf.%s\n' "$COLOR" "$RESET"
+            if [[ "$LANG_CODE" == de ]]; then
+                printf '%s📦 Keine Paket-Updates im letzten Cache-Lauf.%s\n' "$COLOR" "$RESET"
+            else
+                printf '%s📦 No package updates in the latest cache run.%s\n' "$COLOR" "$RESET"
+            fi
         fi
         [[ -n "$generated" ]] && printf '   Cache: %s\n' "$generated"
     else
-        printf '%s📦 Update-Cache wird beim nächsten Timer-Lauf erstellt.%s\n' "$YELLOW" "$RESET"
+        if [[ "$LANG_CODE" == de ]]; then
+            printf '%s📦 Update-Cache wird beim nächsten Timer-Lauf erstellt.%s\n' "$YELLOW" "$RESET"
+        else
+            printf '%s📦 The update cache will be created by the next timer run.%s\n' "$YELLOW" "$RESET"
+        fi
     fi
 fi
 
@@ -128,6 +205,10 @@ if [[ "$SHOW_UPDATE_NOTICE" == yes && -r "$STATE_DIR/version" && -r "$STATE_DIR/
     current=$(head -n 1 "$STATE_DIR/version")
     latest=$(head -n 1 "$STATE_DIR/latest-version")
     if [[ -n "$latest" && "$latest" != "$current" ]]; then
-        printf '\n%s⬆ Foxly MOTD %s ist verfügbar: sudo foxly-motd update%s\n' "$YELLOW" "$latest" "$RESET"
+        if [[ "$LANG_CODE" == de ]]; then
+            printf '\n%s⬆ Foxly MOTD %s ist verfügbar: sudo foxly-motd update%s\n' "$YELLOW" "$latest" "$RESET"
+        else
+            printf '\n%s⬆ Foxly MOTD %s is available: sudo foxly-motd update%s\n' "$YELLOW" "$latest" "$RESET"
+        fi
     fi
 fi

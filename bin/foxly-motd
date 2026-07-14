@@ -237,7 +237,10 @@ rollback() {
     require_root
     require_commands tar
     local archive
-    archive=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name '*.tar.gz' -print 2> /dev/null | sort -r | head -n 1)
+    archive=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'upgrade-*.tar.gz' -print 2> /dev/null | sort -r | head -n 1)
+    if [[ -z "$archive" ]]; then
+        archive=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name '20*.tar.gz' -print 2> /dev/null | sort -r | head -n 1)
+    fi
     [[ -n "$archive" ]] || {
         fail "No backup found in $BACKUP_DIR"
         return 1

@@ -1,4 +1,5 @@
 # Foxly MOTD configuration
+MOTD_LANGUAGE=auto
 COLOR_MODE=always
 USE_LOLCAT=yes
 FIGLET_FONT=slant
