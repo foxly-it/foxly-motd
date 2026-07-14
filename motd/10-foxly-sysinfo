@@ -5,14 +5,13 @@ CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-/etc/default/foxly-motd}"
 CACHE_FILE="${FOXLY_MOTD_CACHE_FILE:-/var/cache/foxly-motd/packages}"
 STATE_DIR="${FOXLY_MOTD_STATE_DIR:-/var/lib/foxly-motd}"
 COLOR_MODE=always
-USE_LOLCAT=yes
 SHOW_DOCKER=yes
 SHOW_PACKAGE_UPDATES=yes
 SHOW_UPDATE_NOTICE=yes
 # shellcheck source=/dev/null
 [[ -r "$CONFIG_FILE" ]] && . "$CONFIG_FILE"
 
-for flag in USE_LOLCAT SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_UPDATE_NOTICE; do
+for flag in SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_UPDATE_NOTICE; do
     [[ "${!flag}" == yes || "${!flag}" == no ]] || printf -v "$flag" no
 done
 case "$COLOR_MODE" in always | never) ;; *) COLOR_MODE=always ;; esac
