@@ -2,11 +2,29 @@
 set -u
 
 CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-/etc/default/foxly-motd}"
+MOTD_LANGUAGE=auto
 COLOR_MODE=always
 USE_LOLCAT=yes
 FIGLET_FONT=slant
 # shellcheck source=/dev/null
 [[ -r "$CONFIG_FILE" ]] && . "$CONFIG_FILE"
+
+resolve_language() {
+    local locale_hint="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" locale_lower
+    if [[ -z "$locale_hint" && -r /etc/default/locale ]]; then
+        locale_hint=$(sed -n 's/^LANG=//p' /etc/default/locale | head -n 1)
+        locale_hint=${locale_hint#\"}
+        locale_hint=${locale_hint%\"}
+    fi
+    locale_lower=$(printf '%s' "$locale_hint" | tr '[:upper:]' '[:lower:]')
+    case "$MOTD_LANGUAGE" in
+        de | en) printf '%s\n' "$MOTD_LANGUAGE" ;;
+        auto) [[ "$locale_lower" == de* ]] && printf 'de\n' || printf 'en\n' ;;
+        *) printf 'en\n' ;;
+    esac
+}
+
+LANG_CODE=$(resolve_language)
 
 case "$COLOR_MODE" in always | never) ;; *) COLOR_MODE=always ;; esac
 case "$USE_LOLCAT" in yes | no) ;; *) USE_LOLCAT=yes ;; esac
@@ -40,5 +58,9 @@ else
 fi
 
 printf '\n'
-printf '\t- %sSystem%s: %s\n' "$GREEN" "$RESET" "$pretty_name"
+if [[ "$LANG_CODE" == de ]]; then
+    printf '\t- %sBetriebssystem%s: %s\n' "$GREEN" "$RESET" "$pretty_name"
+else
+    printf '\t- %sOperating system%s: %s\n' "$GREEN" "$RESET" "$pretty_name"
+fi
 printf '\t- %sKernel%s: %s\n\n' "$GREEN" "$RESET" "$(uname -r)"
