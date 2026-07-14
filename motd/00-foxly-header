@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -u
+
+CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-/etc/default/foxly-motd}"
+COLOR_MODE=always
+USE_LOLCAT=yes
+FIGLET_FONT=slant
+# shellcheck source=/dev/null
+[[ -r "$CONFIG_FILE" ]] && . "$CONFIG_FILE"
+
+case "$COLOR_MODE" in always | never) ;; *) COLOR_MODE=always ;; esac
+case "$USE_LOLCAT" in yes | no) ;; *) USE_LOLCAT=yes ;; esac
+[[ -n "${FOXLY_MOTD_FORCE_COLOR:-}" ]] && COLOR_MODE=always
+
+GREEN=$'\033[38;5;114m'
+RESET=$'\033[0m'
+[[ "$COLOR_MODE" == never ]] && GREEN="" RESET=""
+
+pretty_name="Linux"
+if [[ -r /etc/os-release ]]; then
+    pretty_name=$(sed -n 's/^PRETTY_NAME=//p' /etc/os-release | head -n 1)
+    pretty_name=${pretty_name#\"}
+    pretty_name=${pretty_name%\"}
+fi
+
+render() {
+    if [[ "$COLOR_MODE" == always && "$USE_LOLCAT" == yes ]] && command -v lolcat > /dev/null 2>&1; then
+        lolcat -f
+    else
+        printf '%s' "$GREEN"
+        cat
+        printf '%s' "$RESET"
+    fi
+}
+
+if command -v figlet > /dev/null 2>&1; then
+    figlet -f "$FIGLET_FONT" "$(hostname)" 2> /dev/null | render
+else
+    printf '%s%s%s\n' "$GREEN" "$(hostname)" "$RESET"
+fi
+
+printf '\n'
+printf '\t- %sSystem%s: %s\n' "$GREEN" "$RESET" "$pretty_name"
+printf '\t- %sKernel%s: %s\n\n' "$GREEN" "$RESET" "$(uname -r)"

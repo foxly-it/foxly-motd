@@ -1,0 +1,295 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+VERSION="dev"
+REPO="${FOXLY_MOTD_REPO:-foxly-it/foxly-motd}"
+GITHUB_API="${GITHUB_API:-https://api.github.com}"
+ROOT="${FOXLY_MOTD_ROOT:-}"
+STATE_DIR="${FOXLY_MOTD_STATE_DIR:-${ROOT}/var/lib/foxly-motd}"
+BACKUP_DIR="${FOXLY_MOTD_BACKUP_DIR:-${ROOT}/var/backups/foxly-motd}"
+CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-${ROOT}/etc/default/foxly-motd}"
+MOTD_DIR="${FOXLY_MOTD_DIR:-${ROOT}/etc/update-motd.d}"
+CACHE_COMMAND="${FOXLY_MOTD_CACHE_COMMAND:-${ROOT}/usr/local/lib/foxly-motd/cache}"
+INSTALLER_PATH="${FOXLY_MOTD_INSTALLER_PATH:-${ROOT}/usr/local/lib/foxly-motd/install.sh}"
+TMP_DIR=""
+
+cleanup() {
+    [[ -z "$TMP_DIR" || ! -d "$TMP_DIR" ]] || rm -rf -- "$TMP_DIR"
+}
+trap cleanup EXIT
+
+info() { printf 'INFO: %s\n' "$*"; }
+success() { printf 'OK: %s\n' "$*"; }
+fail() { printf 'ERROR: %s\n' "$*" >&2; }
+
+usage() {
+    cat << 'EOF'
+Usage: foxly-motd COMMAND
+
+Commands:
+  status                 Show installation, cache, and timer status
+  preview                Render the installed MOTD
+  refresh                Refresh the package update cache
+  check-update           Check for a newer Foxly MOTD release
+  update                 Install the latest stable release
+  rollback               Restore the newest local backup
+  enable-auto-update     Enable automatic daily software updates
+  disable-auto-update    Keep daily checks but only show notifications
+  uninstall              Remove Foxly MOTD while retaining backups
+  version                Show the installed command version
+  help                   Show this help
+EOF
+}
+
+require_root() {
+    if [[ -z "$ROOT" && $EUID -ne 0 ]]; then
+        fail "This operation must be run as root"
+        return 1
+    fi
+}
+
+require_commands() {
+    local command_name missing=()
+    for command_name in "$@"; do
+        command -v "$command_name" > /dev/null 2>&1 || missing+=("$command_name")
+    done
+    if ((${#missing[@]})); then
+        fail "Missing required commands: ${missing[*]}"
+        return 1
+    fi
+}
+
+installed_version() {
+    if [[ -r "$STATE_DIR/version" ]]; then
+        head -n 1 "$STATE_DIR/version"
+    else
+        printf '%s\n' "$VERSION"
+    fi
+}
+
+api_get() {
+    curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+        --connect-timeout 10 --max-time 60 "$1"
+}
+
+latest_tag() {
+    api_get "$GITHUB_API/repos/$REPO/releases/latest" |
+        sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+        head -n 1
+}
+
+write_latest_notice() {
+    local tag=$1
+    if mkdir -p "$STATE_DIR" 2> /dev/null &&
+        printf '%s\n' "${tag#v}" > "$STATE_DIR/latest-version.tmp" 2> /dev/null; then
+        mv -f "$STATE_DIR/latest-version.tmp" "$STATE_DIR/latest-version"
+    else
+        rm -f "$STATE_DIR/latest-version.tmp" 2> /dev/null || true
+    fi
+    return 0
+}
+
+check_update() {
+    require_commands curl sed
+    local current tag latest
+    current=$(installed_version)
+    tag=$(latest_tag)
+    latest=${tag#v}
+    [[ -n "$latest" ]] || {
+        fail "Could not determine the latest release"
+        return 1
+    }
+    write_latest_notice "$tag"
+    printf 'Installed: %s\nLatest:    %s\n' "$current" "$latest"
+    if [[ "$current" == "$latest" ]]; then
+        success "Foxly MOTD is up to date"
+        return 0
+    fi
+    info "Update available: $current -> $latest"
+    return 10
+}
+
+checksum_for() {
+    awk -v name="$2" '$2 == name || $2 == "*" name || $2 == "./" name {print $1; exit}' "$1"
+}
+
+validate_archive_paths() {
+    local archive=$1 entry clean
+    while IFS= read -r entry; do
+        clean=${entry#./}
+        case "$clean" in
+            /* | ../* | */../* | */..)
+                fail "Unsafe archive path: $entry"
+                return 1
+                ;;
+        esac
+    done < <(tar -tzf "$archive")
+}
+
+update_installation() {
+    require_root
+    require_commands curl tar sha256sum awk sed
+    local tag version asset base archive checksums expected actual extracted
+    tag=$(latest_tag)
+    version=${tag#v}
+    [[ -n "$version" ]] || {
+        fail "Could not determine the latest release"
+        return 1
+    }
+    local current
+    current=$(installed_version)
+    if [[ "$current" == "$version" ]]; then
+        success "Foxly MOTD $version is already installed"
+        write_latest_notice "$tag"
+        return 0
+    fi
+    if [[ "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
+        [[ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n 1)" == "$current" ]]; then
+        fail "Refusing to downgrade Foxly MOTD from $current to $version"
+        return 1
+    fi
+
+    TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/foxly-motd.XXXXXXXX")
+    chmod 0700 "$TMP_DIR"
+    asset="foxly-motd-${version}.tar.gz"
+    base="https://github.com/$REPO/releases/download/$tag"
+    archive="$TMP_DIR/$asset"
+    checksums="$TMP_DIR/checksums.txt"
+    info "Downloading Foxly MOTD $version"
+    curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+        --connect-timeout 10 --max-time 180 --output "$archive" "$base/$asset"
+    curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+        --connect-timeout 10 --max-time 60 --output "$checksums" "$base/checksums.txt"
+    expected=$(checksum_for "$checksums" "$asset")
+    actual=$(sha256sum "$archive" | awk '{print $1}')
+    [[ "$expected" =~ ^[[:xdigit:]]{64}$ && "$actual" == "$expected" ]] || {
+        fail "SHA-256 verification failed"
+        return 1
+    }
+    validate_archive_paths "$archive"
+    extracted="$TMP_DIR/release"
+    mkdir -m 0700 "$extracted"
+    tar -xzf "$archive" -C "$extracted" --no-same-owner --no-same-permissions
+    [[ -x "$extracted/install.sh" ]] || {
+        fail "Release installer is missing"
+        return 1
+    }
+    bash -n "$extracted/install.sh" "$extracted/bin/foxly-motd" \
+        "$extracted/motd/00-foxly-header" "$extracted/motd/10-foxly-sysinfo" \
+        "$extracted/libexec/foxly-motd-cache"
+    FOXLY_MOTD_ROOT="$ROOT" bash "$extracted/install.sh" --upgrade --no-refresh
+    success "Updated Foxly MOTD to $version"
+}
+
+systemctl_if_available() {
+    [[ -z "$ROOT" ]] && command -v systemctl > /dev/null 2>&1
+}
+
+show_status() {
+    local current latest="unknown" cache_age="not available"
+    current=$(installed_version)
+    [[ -r "$STATE_DIR/latest-version" ]] && latest=$(head -n 1 "$STATE_DIR/latest-version")
+    if [[ -r "${ROOT}/var/cache/foxly-motd/packages" ]]; then
+        cache_age=$(sed -n '1s/^generated=//p' "${ROOT}/var/cache/foxly-motd/packages")
+    fi
+    printf 'Installed version: %s\nLatest known:      %s\nPackage cache:     %s\n' "$current" "$latest" "$cache_age"
+    if systemctl_if_available; then
+        printf 'Cache timer:       %s\n' "$(systemctl is-enabled foxly-motd-cache.timer 2> /dev/null || printf disabled)"
+        printf 'Update timer:      %s\n' "$(systemctl is-enabled foxly-motd-update.timer 2> /dev/null || printf disabled)"
+    fi
+}
+
+preview() {
+    [[ -x "$MOTD_DIR/00-foxly-header" && -x "$MOTD_DIR/10-foxly-sysinfo" ]] || {
+        fail "Foxly MOTD is not installed"
+        return 1
+    }
+    FOXLY_MOTD_FORCE_COLOR=1 "$MOTD_DIR/00-foxly-header"
+    FOXLY_MOTD_FORCE_COLOR=1 "$MOTD_DIR/10-foxly-sysinfo"
+}
+
+refresh_cache() {
+    require_root
+    [[ -x "$CACHE_COMMAND" ]] || {
+        fail "Cache helper not found: $CACHE_COMMAND"
+        return 1
+    }
+    "$CACHE_COMMAND"
+}
+
+set_update_mode() {
+    require_root
+    local mode=$1
+    mkdir -p "$(dirname "$CONFIG_FILE")"
+    if [[ -f "$CONFIG_FILE" ]] && grep -q '^UPDATE_MODE=' "$CONFIG_FILE"; then
+        sed -i.bak "s/^UPDATE_MODE=.*/UPDATE_MODE=$mode/" "$CONFIG_FILE"
+        rm -f "$CONFIG_FILE.bak"
+    else
+        printf '\nUPDATE_MODE=%s\n' "$mode" >> "$CONFIG_FILE"
+    fi
+    if systemctl_if_available; then
+        systemctl enable --now foxly-motd-update.timer
+    fi
+    success "Update mode set to $mode"
+}
+
+rollback() {
+    require_root
+    require_commands tar
+    local archive
+    archive=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name '*.tar.gz' -print 2> /dev/null | sort -r | head -n 1)
+    [[ -n "$archive" ]] || {
+        fail "No backup found in $BACKUP_DIR"
+        return 1
+    }
+    tar -xzf "$archive" -C "${ROOT:-/}"
+    systemctl_if_available && systemctl daemon-reload
+    success "Restored $(basename "$archive")"
+}
+
+uninstall_motd() {
+    require_root
+    if systemctl_if_available; then
+        systemctl disable --now foxly-motd-cache.timer foxly-motd-update.timer 2> /dev/null || true
+    fi
+    rm -f "$MOTD_DIR/00-foxly-header" "$MOTD_DIR/10-foxly-sysinfo" \
+        "${ROOT}/usr/local/sbin/foxly-motd" "$CACHE_COMMAND" "$INSTALLER_PATH" \
+        "${ROOT}/etc/systemd/system/foxly-motd-cache.service" \
+        "${ROOT}/etc/systemd/system/foxly-motd-cache.timer" \
+        "${ROOT}/etc/systemd/system/foxly-motd-update.service" \
+        "${ROOT}/etc/systemd/system/foxly-motd-update.timer"
+    systemctl_if_available && systemctl daemon-reload
+    success "Foxly MOTD removed; configuration and backups were retained"
+}
+
+scheduled_update() {
+    local mode=notify
+    [[ -r "$CONFIG_FILE" ]] && mode=$(sed -n 's/^UPDATE_MODE=//p' "$CONFIG_FILE" | tail -n 1)
+    if [[ "$mode" == automatic ]]; then
+        update_installation
+    else
+        check_update || [[ $? -eq 10 ]]
+    fi
+}
+
+command_name=${1:-help}
+shift || true
+case "$command_name" in
+    status) show_status ;;
+    preview) preview ;;
+    refresh) refresh_cache ;;
+    check-update) check_update ;;
+    update) update_installation ;;
+    --scheduled) scheduled_update ;;
+    rollback) rollback ;;
+    enable-auto-update) set_update_mode automatic ;;
+    disable-auto-update) set_update_mode notify ;;
+    uninstall) uninstall_motd ;;
+    version | --version) printf 'foxly-motd %s\n' "$(installed_version)" ;;
+    help | --help | -h) usage ;;
+    *)
+        fail "Unknown command: $command_name"
+        usage >&2
+        exit 2
+        ;;
+esac

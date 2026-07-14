@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shell tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck shfmt
+
+      - name: Check Bash syntax
+        run: bash -n bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+
+      - name: Run ShellCheck
+        run: shellcheck -x bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+
+      - name: Check formatting
+        run: shfmt -i 4 -ci -sr -d bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+
+      - name: Run integration tests
+        run: bash tests/integration.sh
+
+      - name: Check website
+        run: node tests/web.js

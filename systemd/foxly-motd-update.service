@@ -1,0 +1,9 @@
+[Unit]
+Description=Check for Foxly MOTD updates
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/foxly-motd --scheduled
+TimeoutStartSec=5min

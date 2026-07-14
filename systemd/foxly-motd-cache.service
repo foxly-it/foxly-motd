@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Foxly MOTD package cache
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/foxly-motd/cache
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=10min

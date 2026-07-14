@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+CACHE_DIR="${FOXLY_MOTD_CACHE_DIR:-/var/cache/foxly-motd}"
+CACHE_FILE="$CACHE_DIR/packages"
+LOCK_FILE="${FOXLY_MOTD_CACHE_LOCK:-/run/lock/foxly-motd-cache.lock}"
+
+mkdir -p "$CACHE_DIR" "$(dirname "$LOCK_FILE")"
+exec 9> "$LOCK_FILE"
+flock -n 9 || exit 0
+
+updates=0
+security=0
+packages=""
+if command -v apt-get > /dev/null 2>&1; then
+    apt-get update -qq
+    simulation=$(LC_ALL=C apt-get -s upgrade 2> /dev/null || true)
+    updates=$(printf '%s\n' "$simulation" | awk '/^Inst / {count++} END {print count+0}')
+    security=$(printf '%s\n' "$simulation" | awk 'BEGIN {IGNORECASE=1} /^Inst / && ($0 ~ /security/ || $0 ~ /esm/) {count++} END {print count+0}')
+    packages=$(printf '%s\n' "$simulation" | awk '/^Inst / {printf "%s%s", separator, $2; separator=", "; count++; if (count == 8) exit}')
+    if ((updates > 8)); then
+        packages+=" +$((updates - 8)) weitere"
+    fi
+fi
+
+tmp=$(mktemp "$CACHE_DIR/packages.XXXXXX")
+trap 'rm -f -- "$tmp"' EXIT
+{
+    printf 'generated=%s\n' "$(date '+%d.%m.%Y %H:%M:%S')"
+    printf 'updates=%s\n' "$updates"
+    printf 'security=%s\n' "$security"
+    printf 'packages=%s\n' "$packages"
+} > "$tmp"
+chmod 0644 "$tmp"
+mv -f "$tmp" "$CACHE_FILE"

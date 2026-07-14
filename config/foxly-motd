@@ -1,0 +1,8 @@
+# Foxly MOTD configuration
+COLOR_MODE=always
+USE_LOLCAT=yes
+FIGLET_FONT=slant
+SHOW_DOCKER=yes
+SHOW_PACKAGE_UPDATES=yes
+SHOW_UPDATE_NOTICE=yes
+UPDATE_MODE=notify
