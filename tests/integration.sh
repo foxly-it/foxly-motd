@@ -12,6 +12,7 @@ fail() {
 }
 assert_file() { [[ -f "$1" ]] || fail "Missing file: $1"; }
 assert_contains() { grep -Fq "$2" "$1" || fail "$1 does not contain: $2"; }
+assert_matches() { grep -Eq "$2" "$1" || fail "$1 does not match: $2"; }
 
 printf 'Test: clean installation\n'
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --language de --no-refresh --no-timers
@@ -55,6 +56,52 @@ LC_ALL=de_DE.UTF-8 LANG=de_DE.UTF-8 FOXLY_MOTD_ROOT="$ROOT" \
     FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
     "$ROOT/usr/local/sbin/foxly-motd" preview > "$TEST_DIR/preview-auto-de"
 assert_contains "$TEST_DIR/preview-auto-de" Systeminformationen
+
+printf 'Test: fixed dashboard columns, multiple IPs, and memory usage\n'
+LAYOUT_BIN="$TEST_DIR/layout-bin"
+mkdir -p "$LAYOUT_BIN"
+cat > "$LAYOUT_BIN/ip" << 'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == '-o link show' ]]; then
+    printf '1: lo: <LOOPBACK>\n2: eth0: <UP>\n3: eth1: <UP>\n'
+elif [[ "$*" == *'dev eth0'* ]]; then
+    printf '2: eth0 inet 192.0.2.10/24 scope global eth0\n'
+elif [[ "$*" == *'dev eth1'* ]]; then
+    printf '3: eth1 inet 198.51.100.20/24 scope global eth1\n'
+fi
+EOF
+chmod +x "$LAYOUT_BIN/ip"
+cat > "$TEST_DIR/meminfo" << 'EOF'
+MemTotal:        1000 kB
+MemFree:          100 kB
+MemAvailable:     400 kB
+Buffers:           50 kB
+Cached:           200 kB
+SwapTotal:        200 kB
+SwapFree:         150 kB
+EOF
+sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=de/' "$ROOT/etc/default/foxly-motd"
+rm -f "$ROOT/etc/default/foxly-motd.bak"
+PATH="$LAYOUT_BIN:$PATH" \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    SSH_CONNECTION='203.0.113.5 12345 192.0.2.10 22' \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout"
+assert_contains "$TEST_DIR/layout" 'eth0: 192.0.2.10'
+assert_contains "$TEST_DIR/layout" 'eth1: 198.51.100.20'
+assert_matches "$TEST_DIR/layout" '^RAM benutzt: +60,0%'
+assert_matches "$TEST_DIR/layout" 'Swap benutzt: +25,0%'
+assert_matches "$TEST_DIR/layout" 'Remote Host: +203.0.113.5'
+right_column=$(awk '/Systemlaufzeit:/ {print index($0, "Systemlaufzeit:")}' "$TEST_DIR/layout")
+user_column=$(awk '/Aktueller Nutzer:/ {print index($0, "Aktueller Nutzer:")}' "$TEST_DIR/layout")
+remote_column=$(awk '/Remote Host:/ {print index($0, "Remote Host:")}' "$TEST_DIR/layout")
+[[ "$right_column" == 52 ]] || fail "Systemlaufzeit starts in column $right_column instead of 52"
+[[ "$user_column" == "$right_column" ]] || fail 'Aktueller Nutzer is not aligned with the right column'
+[[ "$remote_column" == "$right_column" ]] || fail 'Remote Host is not aligned with Aktueller Nutzer'
+sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=auto/' "$ROOT/etc/default/foxly-motd"
+rm -f "$ROOT/etc/default/foxly-motd.bak"
 
 printf 'Test: configuration preservation and backup\n'
 printf '\nCUSTOM_SETTING=preserved\n' >> "$ROOT/etc/default/foxly-motd"

@@ -4,6 +4,7 @@ set -u
 CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-/etc/default/foxly-motd}"
 CACHE_FILE="${FOXLY_MOTD_CACHE_FILE:-/var/cache/foxly-motd/packages}"
 STATE_DIR="${FOXLY_MOTD_STATE_DIR:-/var/lib/foxly-motd}"
+MEMINFO_FILE="${FOXLY_MOTD_MEMINFO_FILE:-/proc/meminfo}"
 MOTD_LANGUAGE=auto
 COLOR_MODE=always
 SHOW_DOCKER=yes
@@ -74,7 +75,7 @@ format_uptime() {
 }
 
 get_ipv4s() {
-    local iface address output=""
+    local iface address found=no
     command -v ip > /dev/null 2>&1 || {
         printf 'N/A\n'
         return
@@ -83,10 +84,48 @@ get_ipv4s() {
         case "$iface" in lo | docker* | veth* | br-* | virbr* | tun* | tap*) continue ;; esac
         while IFS= read -r address; do
             address=${address%%/*}
-            output+="${iface}: ${address}, "
+            printf '%s: %s\n' "$iface" "$address"
+            found=yes
         done < <(ip -o -4 address show dev "$iface" scope global 2> /dev/null | awk '{print $4}')
     done < <(ip -o link show 2> /dev/null | awk -F': ' '{sub(/@.*/, "", $2); print $2}')
-    [[ -n "$output" ]] && printf '%s\n' "${output%, }" || printf 'N/A\n'
+    [[ "$found" == yes ]] || printf 'N/A\n'
+}
+
+memory_usage() {
+    awk '
+        $1 == "MemTotal:" { total = $2 }
+        $1 == "MemAvailable:" { available = $2 }
+        $1 == "MemFree:" { free = $2 }
+        $1 == "Buffers:" { buffers = $2 }
+        $1 == "Cached:" { cached = $2 }
+        $1 == "SReclaimable:" { reclaimable = $2 }
+        $1 == "Shmem:" { shmem = $2 }
+        END {
+            if (total <= 0) {
+                print "N/A"
+                exit
+            }
+            if (available <= 0)
+                available = free + buffers + cached + reclaimable - shmem
+            used = total - available
+            if (used < 0) used = 0
+            if (used > total) used = total
+            printf "%.1f%%\n", used * 100 / total
+        }
+    ' "$MEMINFO_FILE" 2> /dev/null
+}
+
+swap_usage() {
+    awk '
+        $1 == "SwapTotal:" { total = $2 }
+        $1 == "SwapFree:" { free = $2 }
+        END {
+            if (total > 0)
+                printf "%.1f%%\n", (total - free) * 100 / total
+            else
+                print "0.0%"
+        }
+    ' "$MEMINFO_FILE" 2> /dev/null
 }
 
 remote_host() {
@@ -108,8 +147,10 @@ cache_value() {
 cpus=$(nproc 2> /dev/null || printf 1)
 load_raw=$(awk '{print $1}' /proc/loadavg 2> /dev/null || printf 0)
 load_pct=$(awk -v load="$load_raw" -v cpus="$cpus" 'BEGIN {if (cpus < 1) cpus=1; printf "%.1f%%", load*100/cpus}')
-memory_usage=$(free 2> /dev/null | awk '/^Mem:/ {if ($2 > 0) printf "%.1f%%", $3*100/$2; else print "N/A"}')
-swap_usage=$(free 2> /dev/null | awk '/^Swap:/ {if ($2 > 0) printf "%.1f%%", $3*100/$2; else print "0.0%"}')
+memory_usage=$(memory_usage)
+memory_usage=${memory_usage:-N/A}
+swap_usage=$(swap_usage)
+swap_usage=${swap_usage:-N/A}
 disk_free=$(df -P / 2> /dev/null | awk 'NR==2 {printf "%.0f%%", $4*100/$2}')
 processes=$(ps -e --no-headers 2> /dev/null | wc -l | tr -d ' ')
 uptime_seconds=$(awk '{print int($1)}' /proc/uptime 2> /dev/null || printf 0)
@@ -146,12 +187,38 @@ localize_number() {
     [[ "$LANG_CODE" == de ]] && printf '%s\n' "${1/./,}" || printf '%s\n' "$1"
 }
 
+print_dashboard_row() {
+    local left_label=$1 left_value=$2 right_label=$3 right_value=$4
+    printf '%s%-21s%s %-28s %s%-18s%s %s\n' \
+        "$COLOR" "$left_label" "$RESET" "$left_value" \
+        "$COLOR" "$right_label" "$RESET" "$right_value"
+}
+
+print_left_continuation() {
+    printf '%-21s %-28s\n' '' "$1"
+}
+
 printf '%s%s %s%s\n\n' "$COLOR" "$heading" "$(date '+%d.%m.%Y %H:%M:%S')" "$RESET"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$ip_label" "$RESET" "$(get_ipv4s)" "$COLOR" "$uptime_label" "$RESET" "$(format_uptime "$uptime_seconds")"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$load_label" "$RESET" "$(localize_number "$load_pct")" "$COLOR" "$processes_label" "$RESET" "$processes"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$memory_label" "$RESET" "$(localize_number "$memory_usage")" "$COLOR" "$swap_label" "$RESET" "$(localize_number "$swap_usage")"
-printf '%s%-21s%s %-28s %s%-18s%s %s\n' "$COLOR" "$disk_label" "$RESET" "$disk_free" "$COLOR" "$user_label" "$RESET" "$(id -un)"
-printf '%-51s %s%-18s%s %s\n' '' "$COLOR" 'Remote Host:' "$RESET" "$(remote_host)"
+ip_lines=()
+while IFS= read -r ip_line; do
+    if ((${#ip_line} > 28)) && [[ "$ip_line" == *': '* ]]; then
+        ip_lines+=("${ip_line%%: *}:")
+        ip_line="  ${ip_line#*: }"
+    fi
+    while ((${#ip_line} > 28)); do
+        ip_lines+=("${ip_line:0:28}")
+        ip_line=${ip_line:28}
+    done
+    ip_lines+=("$ip_line")
+done < <(get_ipv4s)
+print_dashboard_row "$ip_label" "${ip_lines[0]:-N/A}" "$uptime_label" "$(format_uptime "$uptime_seconds")"
+for ((i = 1; i < ${#ip_lines[@]}; i++)); do
+    print_left_continuation "${ip_lines[$i]}"
+done
+print_dashboard_row "$load_label" "$(localize_number "$load_pct")" "$processes_label" "$processes"
+print_dashboard_row "$memory_label" "$(localize_number "$memory_usage")" "$swap_label" "$(localize_number "$swap_usage")"
+print_dashboard_row "$disk_label" "$disk_free" "$user_label" "$(id -un)"
+print_dashboard_row '' '' 'Remote Host:' "$(remote_host)"
 printf '\n'
 
 if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
