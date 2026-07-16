@@ -30,6 +30,8 @@ check(html.includes("@media(max-width:1020px)"), "Wide terminal breakpoint missi
 check((html.match(/class="terminal-prompt"/g) || []).length === 2, "Terminal prompts missing");
 check((html.match(/class="cursor" aria-hidden="true"/g) || []).length === 2, "Terminal cursors missing");
 check(html.includes("@keyframes cursor-blink") && html.includes("prefers-reduced-motion:reduce"), "Accessible cursor animation missing");
+check(html.includes("@keyframes terminal-settle") && html.includes("rotateY(-8deg) translateX(16px)"), "Terminal hover animation missing");
+check(html.includes("(hover:hover) and (pointer:fine)"), "Terminal hover capability guard missing");
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
 check(!html.includes("http://"), "Insecure HTTP URL found");
 
