@@ -13,6 +13,7 @@ fail() {
 assert_file() { [[ -f "$1" ]] || fail "Missing file: $1"; }
 assert_contains() { grep -Fq "$2" "$1" || fail "$1 does not contain: $2"; }
 assert_matches() { grep -Eq "$2" "$1" || fail "$1 does not match: $2"; }
+assert_not_contains() { grep -Fq "$2" "$1" && fail "$1 unexpectedly contains: $2" || return 0; }
 
 printf 'Test: clean installation\n'
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --language de --no-refresh --no-timers
@@ -117,20 +118,31 @@ assert_contains "$TEST_DIR/layout" '                      1.1.1.1'
 assert_matches "$TEST_DIR/layout" '^│ RAM benutzt: +60,0%'
 assert_matches "$TEST_DIR/layout" 'Swap benutzt: +25,0%'
 assert_matches "$TEST_DIR/layout" 'Remote Host: +203.0.113.5'
-assert_contains "$TEST_DIR/layout" 'Systemd-Dienste: 2 fehlgeschlagen'
-assert_contains "$TEST_DIR/layout" 'Neustart nötig: Ja'
+assert_contains "$TEST_DIR/layout" '[ NETZWERK ]'
+assert_contains "$TEST_DIR/layout" '[ RESSOURCEN ]'
+assert_contains "$TEST_DIR/layout" '[ SITZUNG ]'
+assert_contains "$TEST_DIR/layout" '[ SYSTEMSTATUS ]'
+assert_matches "$TEST_DIR/layout" '^│ Systemd-Dienste: +2 fehlgeschlagen +Neustart nötig: +Ja +│$'
+assert_not_contains "$TEST_DIR/layout" '⚙'
 assert_contains "$TEST_DIR/layout" 'Docker-Container  aktiv: 2 · gestoppt: 1 · fehlerhaft: 1 · Neustart: 1'
 assert_matches "$TEST_DIR/layout" '^╭─+╮$'
 assert_matches "$TEST_DIR/layout" '^╰─+╯$'
 assert_matches "$TEST_DIR/layout" '^│ Systeminformationen am .+ +│$'
 blank_box_rows=$(grep -Ec '^│ +│$' "$TEST_DIR/layout")
-((blank_box_rows >= 6)) || fail "Expected at least 6 blank box rows, found $blank_box_rows"
-right_column=$(awk '/Systemlaufzeit:/ {sub(/^│ /, ""); print index($0, "Systemlaufzeit:")}' "$TEST_DIR/layout")
-user_column=$(awk '/Aktueller Nutzer:/ {sub(/^│ /, ""); print index($0, "Aktueller Nutzer:")}' "$TEST_DIR/layout")
-remote_column=$(awk '/Remote Host:/ {sub(/^│ /, ""); print index($0, "Remote Host:")}' "$TEST_DIR/layout")
-[[ "$right_column" == 52 ]] || fail "Systemlaufzeit starts in inner column $right_column instead of 52"
-[[ "$user_column" == "$right_column" ]] || fail 'Aktueller Nutzer is not aligned with the right column'
-[[ "$remote_column" == "$right_column" ]] || fail 'Remote Host is not aligned with Aktueller Nutzer'
+((blank_box_rows >= 4)) || fail "Expected at least 4 group separators, found $blank_box_rows"
+processes_column=$(awk '/Prozesse:/ {sub(/^│ /, ""); print index($0, "Prozesse:")}' "$TEST_DIR/layout")
+swap_column=$(awk '/Swap benutzt:/ {sub(/^│ /, ""); print index($0, "Swap benutzt:")}' "$TEST_DIR/layout")
+[[ "$processes_column" == 52 ]] || fail "Prozesse starts in inner column $processes_column instead of 52"
+[[ "$swap_column" == "$processes_column" ]] || fail 'Swap benutzt is not aligned with Prozesse'
+assert_matches "$TEST_DIR/layout" '^│ Systemlaufzeit: +[^│]+ +│$'
+assert_matches "$TEST_DIR/layout" '^│ Aktueller Nutzer: +[^│]+ +│$'
+assert_matches "$TEST_DIR/layout" '^│ Remote Host: +203\.0\.113\.5 +│$'
+network_line=$(grep -nF '[ NETZWERK ]' "$TEST_DIR/layout" | cut -d: -f1)
+resources_line=$(grep -nF '[ RESSOURCEN ]' "$TEST_DIR/layout" | cut -d: -f1)
+session_line=$(grep -nF '[ SITZUNG ]' "$TEST_DIR/layout" | cut -d: -f1)
+health_line=$(grep -nF '[ SYSTEMSTATUS ]' "$TEST_DIR/layout" | cut -d: -f1)
+((network_line < resources_line && resources_line < session_line && session_line < health_line)) ||
+    fail 'Dashboard groups are not ordered as network, resources, session, health'
 
 printf 'Test: PAM and login-session remote host fallbacks\n'
 env -u SSH_CONNECTION -u SSH_CLIENT \
