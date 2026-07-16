@@ -20,6 +20,10 @@ check(html.includes('navigator.language'), "Automatic browser language selection
 check(html.includes("https://foxly.de/datenschutzerklaerung/"), "Privacy link missing");
 check(html.includes("https://foxly.de/legal-notice/"), "Legal notice link missing");
 check(html.includes('data-terminal="de"') && html.includes('data-terminal="en"'), "Bilingual terminal preview missing");
+check((html.match(/class="rainbow"/g) || []).length === 2, "Rainbow HomeLab preview missing");
+check(html.includes("/ /_/ / __ \\/ __ `__ \\/ _ \\/ /"), "HomeLab ASCII art missing");
+check(html.includes("10.0.0.20/24") && html.includes("DNS-Server:"), "Network details missing from preview");
+check(html.includes("Systemd-Dienste:") && html.includes("fehlerhaft: 0"), "Health details missing from preview");
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
 check(!html.includes("http://"), "Insecure HTTP URL found");
 
