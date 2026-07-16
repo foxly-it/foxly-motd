@@ -24,6 +24,9 @@ check((html.match(/class="rainbow"/g) || []).length === 2, "Rainbow HomeLab prev
 check(html.includes("/ /_/ / __ \\/ __ `__ \\/ _ \\/ /"), "HomeLab ASCII art missing");
 check(html.includes("10.0.0.20/24") && html.includes("DNS-Server:"), "Network details missing from preview");
 check(html.includes("Systemd-Dienste:") && html.includes("fehlerhaft: 0"), "Health details missing from preview");
+check((html.match(/class="sysinfo-box"/g) || []).length === 2, "Framed system information preview missing");
+check(html.includes("width:min(1200px") && html.includes("minmax(320px,.7fr) minmax(0,1.3fr)"), "Wide terminal layout missing");
+check(html.includes("@media(max-width:1020px)"), "Wide terminal breakpoint missing");
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
 check(!html.includes("http://"), "Insecure HTTP URL found");
 
