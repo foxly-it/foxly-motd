@@ -258,59 +258,92 @@ print_left_continuation() {
     printf '%-21s %-28s\n' '' "$1"
 }
 
-printf '%s%s %s%s\n\n' "$COLOR" "$heading" "$(date '+%d.%m.%Y %H:%M:%S')" "$RESET"
-ip_lines=()
-while IFS= read -r ip_line; do
-    if ((${#ip_line} > 28)) && [[ "$ip_line" == *': '* ]]; then
-        ip_lines+=("${ip_line%%: *}:")
-        ip_line="  ${ip_line#*: }"
-    fi
-    while ((${#ip_line} > 28)); do
-        ip_lines+=("${ip_line:0:28}")
-        ip_line=${ip_line:28}
+print_box() {
+    local content=$1 horizontal line padding width=0 i
+    local -a colored_lines plain_lines
+    colored_lines=()
+    plain_lines=()
+    while IFS= read -r line; do
+        colored_lines+=("$line")
+    done <<< "$content"
+    while IFS= read -r line; do
+        plain_lines+=("$line")
+    done < <(printf '%s\n' "$content" | sed $'s/\033\\[[0-9;]*m//g')
+    for line in "${plain_lines[@]}"; do
+        ((${#line} > width)) && width=${#line}
     done
-    ip_lines+=("$ip_line")
-done < <(get_ipv4s)
-print_dashboard_row "$ip_label" "${ip_lines[0]:-N/A}" "$uptime_label" "$(format_uptime "$uptime_seconds")"
-for ((i = 1; i < ${#ip_lines[@]}; i++)); do
-    print_left_continuation "${ip_lines[$i]}"
-done
-print_dashboard_row "$load_label" "$(localize_number "$load_pct")" "$processes_label" "$processes"
-print_dashboard_row "$memory_label" "$(localize_number "$memory_usage")" "$swap_label" "$(localize_number "$swap_usage")"
-print_dashboard_row "$disk_label" "$disk_free" "$user_label" "$(id -un)"
-if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
-    dns_lines=()
-    while IFS= read -r dns_line; do
-        while ((${#dns_line} > 28)); do
-            dns_lines+=("${dns_line:0:28}")
-            dns_line=${dns_line:28}
-        done
-        dns_lines+=("$dns_line")
-    done < <(get_dns_servers)
-    print_dashboard_row "$dns_label" "${dns_lines[0]:-N/A}" 'Remote Host:' "$(remote_host)"
-    for ((i = 1; i < ${#dns_lines[@]}; i++)); do
-        print_left_continuation "${dns_lines[$i]}"
+    printf -v horizontal '%*s' "$((width + 2))" ''
+    horizontal=${horizontal// /─}
+    printf '%s╭%s╮%s\n' "$COLOR" "$horizontal" "$RESET"
+    for ((i = 0; i < ${#colored_lines[@]}; i++)); do
+        padding=$((width - ${#plain_lines[i]}))
+        printf '%s│%s %s%*s %s│%s\n' \
+            "$COLOR" "$RESET" "${colored_lines[i]}" "$padding" '' "$COLOR" "$RESET"
     done
-else
-    print_dashboard_row '' '' 'Remote Host:' "$(remote_host)"
-fi
-printf '\n'
+    printf '%s╰%s╯%s\n' "$COLOR" "$horizontal" "$RESET"
+}
 
-if [[ "$SHOW_SYSTEM_HEALTH" == yes ]]; then
-    failed_services=$(failed_service_count)
-    failed_color=$GREEN
-    [[ "$failed_services" =~ ^[0-9]+$ ]] || failed_color=$YELLOW
-    [[ "$failed_services" =~ ^[1-9][0-9]*$ ]] && failed_color=$YELLOW
-    reboot_required=$no_label
-    reboot_color=$GREEN
-    if [[ -e "$REBOOT_REQUIRED_FILE" ]]; then
-        reboot_required=$yes_label
-        reboot_color=$YELLOW
+dashboard_output=$(
+    printf '%s%s %s%s\n\n' "$COLOR" "$heading" "$(date '+%d.%m.%Y %H:%M:%S')" "$RESET"
+    ip_lines=()
+    while IFS= read -r ip_line; do
+        if ((${#ip_line} > 28)) && [[ "$ip_line" == *': '* ]]; then
+            ip_lines+=("${ip_line%%: *}:")
+            ip_line="  ${ip_line#*: }"
+        fi
+        while ((${#ip_line} > 28)); do
+            ip_lines+=("${ip_line:0:28}")
+            ip_line=${ip_line:28}
+        done
+        ip_lines+=("$ip_line")
+    done < <(get_ipv4s)
+    print_dashboard_row "$ip_label" "${ip_lines[0]:-N/A}" "$uptime_label" "$(format_uptime "$uptime_seconds")"
+    for ((i = 1; i < ${#ip_lines[@]}; i++)); do
+        print_left_continuation "${ip_lines[$i]}"
+    done
+    printf '\n'
+    print_dashboard_row "$load_label" "$(localize_number "$load_pct")" "$processes_label" "$processes"
+    printf '\n'
+    print_dashboard_row "$memory_label" "$(localize_number "$memory_usage")" "$swap_label" "$(localize_number "$swap_usage")"
+    printf '\n'
+    print_dashboard_row "$disk_label" "$disk_free" "$user_label" "$(id -un)"
+    printf '\n'
+    if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
+        dns_lines=()
+        while IFS= read -r dns_line; do
+            while ((${#dns_line} > 28)); do
+                dns_lines+=("${dns_line:0:28}")
+                dns_line=${dns_line:28}
+            done
+            dns_lines+=("$dns_line")
+        done < <(get_dns_servers)
+        print_dashboard_row "$dns_label" "${dns_lines[0]:-N/A}" 'Remote Host:' "$(remote_host)"
+        for ((i = 1; i < ${#dns_lines[@]}; i++)); do
+            print_left_continuation "${dns_lines[$i]}"
+        done
+    else
+        print_dashboard_row '' '' 'Remote Host:' "$(remote_host)"
     fi
-    printf '%s⚙ %s%s %s%s %s%s · %s%s%s %s%s%s\n\n' \
-        "$COLOR" "$failed_services_label" "$RESET" "$failed_color" "$failed_services" "$failed_services_suffix" "$RESET" \
-        "$COLOR" "$reboot_label" "$RESET" "$reboot_color" "$reboot_required" "$RESET"
-fi
+    printf '\n'
+
+    if [[ "$SHOW_SYSTEM_HEALTH" == yes ]]; then
+        failed_services=$(failed_service_count)
+        failed_color=$GREEN
+        [[ "$failed_services" =~ ^[0-9]+$ ]] || failed_color=$YELLOW
+        [[ "$failed_services" =~ ^[1-9][0-9]*$ ]] && failed_color=$YELLOW
+        reboot_required=$no_label
+        reboot_color=$GREEN
+        if [[ -e "$REBOOT_REQUIRED_FILE" ]]; then
+            reboot_required=$yes_label
+            reboot_color=$YELLOW
+        fi
+        printf '%s⚙ %s%s %s%s %s%s · %s%s%s %s%s%s\n\n' \
+            "$COLOR" "$failed_services_label" "$RESET" "$failed_color" "$failed_services" "$failed_services_suffix" "$RESET" \
+            "$COLOR" "$reboot_label" "$RESET" "$reboot_color" "$reboot_required" "$RESET"
+    fi
+)
+print_box "$dashboard_output"
+printf '\n'
 
 if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
     docker_rows=$(timeout 2 docker ps -a --format '{{.State}}\t{{.Status}}' 2> /dev/null)

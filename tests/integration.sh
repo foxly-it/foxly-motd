@@ -114,16 +114,21 @@ assert_contains "$TEST_DIR/layout" 'eth0: 192.0.2.10/24'
 assert_contains "$TEST_DIR/layout" 'eth1: 198.51.100.20/24'
 assert_contains "$TEST_DIR/layout" 'DNS-Server:           10.100.0.1'
 assert_contains "$TEST_DIR/layout" '                      1.1.1.1'
-assert_matches "$TEST_DIR/layout" '^RAM benutzt: +60,0%'
+assert_matches "$TEST_DIR/layout" '^│ RAM benutzt: +60,0%'
 assert_matches "$TEST_DIR/layout" 'Swap benutzt: +25,0%'
 assert_matches "$TEST_DIR/layout" 'Remote Host: +203.0.113.5'
 assert_contains "$TEST_DIR/layout" 'Systemd-Dienste: 2 fehlgeschlagen'
 assert_contains "$TEST_DIR/layout" 'Neustart nötig: Ja'
 assert_contains "$TEST_DIR/layout" 'Docker-Container  aktiv: 2 · gestoppt: 1 · fehlerhaft: 1 · Neustart: 1'
-right_column=$(awk '/Systemlaufzeit:/ {print index($0, "Systemlaufzeit:")}' "$TEST_DIR/layout")
-user_column=$(awk '/Aktueller Nutzer:/ {print index($0, "Aktueller Nutzer:")}' "$TEST_DIR/layout")
-remote_column=$(awk '/Remote Host:/ {print index($0, "Remote Host:")}' "$TEST_DIR/layout")
-[[ "$right_column" == 52 ]] || fail "Systemlaufzeit starts in column $right_column instead of 52"
+assert_matches "$TEST_DIR/layout" '^╭─+╮$'
+assert_matches "$TEST_DIR/layout" '^╰─+╯$'
+assert_matches "$TEST_DIR/layout" '^│ Systeminformationen am .+ +│$'
+blank_box_rows=$(grep -Ec '^│ +│$' "$TEST_DIR/layout")
+((blank_box_rows >= 6)) || fail "Expected at least 6 blank box rows, found $blank_box_rows"
+right_column=$(awk '/Systemlaufzeit:/ {sub(/^│ /, ""); print index($0, "Systemlaufzeit:")}' "$TEST_DIR/layout")
+user_column=$(awk '/Aktueller Nutzer:/ {sub(/^│ /, ""); print index($0, "Aktueller Nutzer:")}' "$TEST_DIR/layout")
+remote_column=$(awk '/Remote Host:/ {sub(/^│ /, ""); print index($0, "Remote Host:")}' "$TEST_DIR/layout")
+[[ "$right_column" == 52 ]] || fail "Systemlaufzeit starts in inner column $right_column instead of 52"
 [[ "$user_column" == "$right_column" ]] || fail 'Aktueller Nutzer is not aligned with the right column'
 [[ "$remote_column" == "$right_column" ]] || fail 'Remote Host is not aligned with Aktueller Nutzer'
 
