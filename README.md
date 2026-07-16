@@ -6,7 +6,7 @@ Ein schnelles, updatefähiges System-Dashboard für SSH-Logins auf Debian und Ub
 
 ## Deutsch
 
-Foxly MOTD zeigt Hostname, Betriebssystem, IP-Adressen, Uptime, Systemlast, RAM, Swap, Speicherplatz, Docker-Status und verfügbare Paketupdates auf Deutsch oder Englisch. Netzwerk- und APT-Aufrufe werden nicht während des Logins ausgeführt: systemd aktualisiert die Paketinformationen im Hintergrund, während das MOTD ausschließlich lokale und gecachte Daten liest.
+Foxly MOTD zeigt Hostname, Betriebssystem, IP-Adressen mit CIDR-Präfix, DNS-Server, Uptime, Systemlast, RAM, Swap, Speicherplatz, systemd-Zustand, Neustartbedarf, Docker-Status und verfügbare Paketupdates auf Deutsch oder Englisch. Netzwerk- und APT-Aufrufe werden nicht während des Logins ausgeführt: systemd aktualisiert die Paketinformationen im Hintergrund, während das MOTD ausschließlich lokale und gecachte Daten liest.
 
 ### Unterstützte Systeme
 
@@ -152,13 +152,32 @@ MOTD_LANGUAGE=auto
 COLOR_MODE=always
 USE_LOLCAT=yes
 FIGLET_FONT=slant
+SHOW_NETWORK_DETAILS=yes
+SHOW_SYSTEM_HEALTH=yes
 SHOW_DOCKER=yes
 SHOW_PACKAGE_UPDATES=yes
 SHOW_UPDATE_NOTICE=yes
 UPDATE_MODE=notify
 ```
 
-Erlaubte Werte für Schalter sind `yes` und `no`. `MOTD_LANGUAGE` akzeptiert `auto`, `de` und `en`; `COLOR_MODE` akzeptiert `always` und `never`; `UPDATE_MODE` akzeptiert `notify` und `automatic`.
+Erlaubte Werte für Schalter sind `yes` und `no`. `SHOW_NETWORK_DETAILS` steuert die DNS-Anzeige, `SHOW_SYSTEM_HEALTH` die Anzeige fehlgeschlagener systemd-Dienste und eines erforderlichen Neustarts. `MOTD_LANGUAGE` akzeptiert `auto`, `de` und `en`; `COLOR_MODE` akzeptiert `always` und `never`; `UPDATE_MODE` akzeptiert `notify` und `automatic`.
+
+### Datenquellen und Login-Verhalten
+
+Die MOTD führt beim Login keine ausgehenden Netzwerkaufrufe aus. Die angezeigten Werte stammen aus lokalen Dateien, lokalen Systemwerkzeugen oder dem von systemd gepflegten Paket-Cache:
+
+| Anzeige | Lokale Datenquelle |
+| --- | --- |
+| Betriebssystem und Kernel | `/etc/os-release`, `uname` |
+| IP-Adressen und CIDR-Präfixe | `ip address` |
+| DNS-Server | `resolvectl dns`, ersatzweise `/etc/resolv.conf` |
+| Fehlgeschlagene Dienste | `systemctl --failed --type=service` |
+| Neustart erforderlich | `/var/run/reboot-required` |
+| Docker-Zustände | `docker ps`, einschließlich `unhealthy` und `restarting` |
+| Paketupdates | `/var/cache/foxly-motd/packages`, aktualisiert durch den Cache-Timer |
+| Remote Host | SSH- und PAM-Sitzungsdaten, ersatzweise `who -m` |
+
+Die Abfragen von DNS, systemd und Docker besitzen jeweils ein Zeitlimit von zwei Sekunden. Ist eine Quelle nicht verfügbar, wird `N/A` beziehungsweise ein Hinweis ausgegeben, ohne den Login dauerhaft zu blockieren. Wenn `/etc/resolv.conf` auf einen lokalen Stub-Resolver zeigt, kann als DNS-Server beispielsweise `127.0.0.53` erscheinen.
 
 ### Pfade
 
@@ -195,7 +214,7 @@ Konfiguration, Cache und Backups bleiben bewusst erhalten. Sie können nach eine
 
 ## English
 
-Foxly MOTD is a fast, updateable German and English system dashboard for Debian and Ubuntu SSH logins. Package metadata is refreshed by a systemd timer, so the login path performs no APT or network requests.
+Foxly MOTD is a fast, updateable German and English system dashboard for Debian and Ubuntu SSH logins. It includes IP addresses with CIDR prefixes, DNS servers, systemd and reboot health, and detailed Docker states. Package metadata is refreshed by a systemd timer, so the login path performs no APT or network requests.
 
 ### Installation
 

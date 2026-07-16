@@ -5,8 +5,12 @@ CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-/etc/default/foxly-motd}"
 CACHE_FILE="${FOXLY_MOTD_CACHE_FILE:-/var/cache/foxly-motd/packages}"
 STATE_DIR="${FOXLY_MOTD_STATE_DIR:-/var/lib/foxly-motd}"
 MEMINFO_FILE="${FOXLY_MOTD_MEMINFO_FILE:-/proc/meminfo}"
+RESOLV_CONF_FILE="${FOXLY_MOTD_RESOLV_CONF_FILE:-/etc/resolv.conf}"
+REBOOT_REQUIRED_FILE="${FOXLY_MOTD_REBOOT_REQUIRED_FILE:-/var/run/reboot-required}"
 MOTD_LANGUAGE=auto
 COLOR_MODE=always
+SHOW_NETWORK_DETAILS=yes
+SHOW_SYSTEM_HEALTH=yes
 SHOW_DOCKER=yes
 SHOW_PACKAGE_UPDATES=yes
 SHOW_UPDATE_NOTICE=yes
@@ -30,7 +34,7 @@ resolve_language() {
 
 LANG_CODE=$(resolve_language)
 
-for flag in SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_UPDATE_NOTICE; do
+for flag in SHOW_NETWORK_DETAILS SHOW_SYSTEM_HEALTH SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_UPDATE_NOTICE; do
     [[ "${!flag}" == yes || "${!flag}" == no ]] || printf -v "$flag" no
 done
 case "$COLOR_MODE" in always | never) ;; *) COLOR_MODE=always ;; esac
@@ -83,12 +87,47 @@ get_ipv4s() {
     while IFS= read -r iface; do
         case "$iface" in lo | docker* | veth* | br-* | virbr* | tun* | tap*) continue ;; esac
         while IFS= read -r address; do
-            address=${address%%/*}
             printf '%s: %s\n' "$iface" "$address"
             found=yes
         done < <(ip -o -4 address show dev "$iface" scope global 2> /dev/null | awk '{print $4}')
     done < <(ip -o link show 2> /dev/null | awk -F': ' '{sub(/@.*/, "", $2); print $2}')
     [[ "$found" == yes ]] || printf 'N/A\n'
+}
+
+get_dns_servers() {
+    local servers=""
+    if command -v resolvectl > /dev/null 2>&1; then
+        servers=$(timeout 2 resolvectl dns 2> /dev/null | awk '
+            {
+                sub(/^[^:]*:[[:space:]]*/, "")
+                for (i = 1; i <= NF; i++)
+                    if ($i != "-") print $i
+            }
+        ')
+    fi
+    if [[ -z "$servers" && -r "$RESOLV_CONF_FILE" ]]; then
+        servers=$(awk '$1 == "nameserver" && $2 != "" {print $2}' "$RESOLV_CONF_FILE" 2> /dev/null)
+    fi
+    if [[ -n "$servers" ]]; then
+        printf '%s\n' "$servers" | awk 'NF && !seen[$0]++'
+    else
+        printf 'N/A\n'
+    fi
+}
+
+failed_service_count() {
+    local units status
+    command -v systemctl > /dev/null 2>&1 || {
+        printf 'N/A\n'
+        return
+    }
+    units=$(timeout 2 systemctl --failed --type=service --no-legend --plain 2> /dev/null)
+    status=$?
+    if ((status == 0)); then
+        printf '%s\n' "$units" | awk 'NF {count++} END {print count+0}'
+    else
+        printf 'N/A\n'
+    fi
 }
 
 memory_usage() {
@@ -129,10 +168,15 @@ swap_usage() {
 }
 
 remote_host() {
+    local session
     if [[ -n "${SSH_CONNECTION:-}" ]]; then
         printf '%s\n' "${SSH_CONNECTION%% *}"
     elif [[ -n "${SSH_CLIENT:-}" ]]; then
         printf '%s\n' "${SSH_CLIENT%% *}"
+    elif [[ -n "${PAM_RHOST:-}" ]]; then
+        printf '%s\n' "$PAM_RHOST"
+    elif session=$(who -m 2> /dev/null) && [[ "$session" =~ \(([^()]*)\)[[:space:]]*$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
     else
         printf 'N/A\n'
     fi
@@ -165,9 +209,17 @@ if [[ "$LANG_CODE" == de ]]; then
     swap_label="Swap benutzt:"
     disk_label="Freier Speicherplatz:"
     user_label="Aktueller Nutzer:"
+    dns_label="DNS-Server:"
+    failed_services_label="Systemd-Dienste:"
+    failed_services_suffix="fehlgeschlagen"
+    reboot_label="Neustart nötig:"
+    yes_label="Ja"
+    no_label="Nein"
     docker_title="Docker-Container"
     docker_active="aktiv"
     docker_stopped="gestoppt"
+    docker_unhealthy="fehlerhaft"
+    docker_restarting="Neustart"
 else
     heading="System information at"
     ip_label="IP address(es):"
@@ -178,9 +230,17 @@ else
     swap_label="Swap used:"
     disk_label="Free disk space:"
     user_label="Current user:"
+    dns_label="DNS servers:"
+    failed_services_label="Systemd services:"
+    failed_services_suffix="failed"
+    reboot_label="Reboot required:"
+    yes_label="Yes"
+    no_label="No"
     docker_title="Docker containers"
     docker_active="running"
     docker_stopped="stopped"
+    docker_unhealthy="unhealthy"
+    docker_restarting="restarting"
 fi
 
 localize_number() {
@@ -218,11 +278,42 @@ done
 print_dashboard_row "$load_label" "$(localize_number "$load_pct")" "$processes_label" "$processes"
 print_dashboard_row "$memory_label" "$(localize_number "$memory_usage")" "$swap_label" "$(localize_number "$swap_usage")"
 print_dashboard_row "$disk_label" "$disk_free" "$user_label" "$(id -un)"
-print_dashboard_row '' '' 'Remote Host:' "$(remote_host)"
+if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
+    dns_lines=()
+    while IFS= read -r dns_line; do
+        while ((${#dns_line} > 28)); do
+            dns_lines+=("${dns_line:0:28}")
+            dns_line=${dns_line:28}
+        done
+        dns_lines+=("$dns_line")
+    done < <(get_dns_servers)
+    print_dashboard_row "$dns_label" "${dns_lines[0]:-N/A}" 'Remote Host:' "$(remote_host)"
+    for ((i = 1; i < ${#dns_lines[@]}; i++)); do
+        print_left_continuation "${dns_lines[$i]}"
+    done
+else
+    print_dashboard_row '' '' 'Remote Host:' "$(remote_host)"
+fi
 printf '\n'
 
+if [[ "$SHOW_SYSTEM_HEALTH" == yes ]]; then
+    failed_services=$(failed_service_count)
+    failed_color=$GREEN
+    [[ "$failed_services" =~ ^[0-9]+$ ]] || failed_color=$YELLOW
+    [[ "$failed_services" =~ ^[1-9][0-9]*$ ]] && failed_color=$YELLOW
+    reboot_required=$no_label
+    reboot_color=$GREEN
+    if [[ -e "$REBOOT_REQUIRED_FILE" ]]; then
+        reboot_required=$yes_label
+        reboot_color=$YELLOW
+    fi
+    printf '%s⚙ %s%s %s%s %s%s · %s%s%s %s%s%s\n\n' \
+        "$COLOR" "$failed_services_label" "$RESET" "$failed_color" "$failed_services" "$failed_services_suffix" "$RESET" \
+        "$COLOR" "$reboot_label" "$RESET" "$reboot_color" "$reboot_required" "$RESET"
+fi
+
 if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
-    docker_rows=$(timeout 2 docker ps -a --format '{{.State}}' 2> /dev/null)
+    docker_rows=$(timeout 2 docker ps -a --format '{{.State}}\t{{.Status}}' 2> /dev/null)
     docker_status=$?
     if ((docker_status != 0)); then
         if [[ "$LANG_CODE" == de ]]; then
@@ -233,8 +324,14 @@ if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
     else
         running=$(printf '%s\n' "$docker_rows" | awk '$1 == "running" {count++} END {print count+0}')
         stopped=$(printf '%s\n' "$docker_rows" | awk '$1 == "exited" || $1 == "dead" {count++} END {print count+0}')
-        printf '%s🐳 %s%s  %s%s: %s%s · %s%s: %s%s\n\n' \
-            "$COLOR" "$docker_title" "$RESET" "$GREEN" "$docker_active" "$running" "$RESET" "$YELLOW" "$docker_stopped" "$stopped" "$RESET"
+        unhealthy=$(printf '%s\n' "$docker_rows" | awk 'index($0, "(unhealthy)") {count++} END {print count+0}')
+        restarting=$(printf '%s\n' "$docker_rows" | awk '$1 == "restarting" {count++} END {print count+0}')
+        printf '%s🐳 %s%s  %s%s: %s%s · %s%s: %s%s · %s%s: %s%s · %s%s: %s%s\n\n' \
+            "$COLOR" "$docker_title" "$RESET" \
+            "$GREEN" "$docker_active" "$running" "$RESET" \
+            "$YELLOW" "$docker_stopped" "$stopped" "$RESET" \
+            "$YELLOW" "$docker_unhealthy" "$unhealthy" "$RESET" \
+            "$YELLOW" "$docker_restarting" "$restarting" "$RESET"
     fi
 fi
 

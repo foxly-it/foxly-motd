@@ -23,6 +23,8 @@ assert_file "$ROOT/etc/default/foxly-motd"
 assert_file "$ROOT/etc/systemd/system/foxly-motd-cache.timer"
 assert_contains "$ROOT/var/lib/foxly-motd/version" dev
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=de
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_NETWORK_DETAILS=yes
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_SYSTEM_HEALTH=yes
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --no-refresh --no-timers
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=de
 
@@ -70,7 +72,24 @@ elif [[ "$*" == *'dev eth1'* ]]; then
     printf '3: eth1 inet 198.51.100.20/24 scope global eth1\n'
 fi
 EOF
-chmod +x "$LAYOUT_BIN/ip"
+cat > "$LAYOUT_BIN/resolvectl" << 'EOF'
+#!/usr/bin/env bash
+printf 'Global: 10.100.0.1 1.1.1.1\nLink 2 (eth0): 10.100.0.1\n'
+EOF
+cat > "$LAYOUT_BIN/systemctl" << 'EOF'
+#!/usr/bin/env bash
+printf 'broken.service loaded failed failed\nother.service loaded failed failed\n'
+EOF
+cat > "$LAYOUT_BIN/docker" << 'EOF'
+#!/usr/bin/env bash
+printf 'running\tUp 2 hours (healthy)\nrunning\tUp 2 hours (unhealthy)\nrestarting\tRestarting (1) 2 seconds ago\nexited\tExited (0) 1 hour ago\n'
+EOF
+cat > "$LAYOUT_BIN/timeout" << 'EOF'
+#!/usr/bin/env bash
+shift
+exec "$@"
+EOF
+chmod +x "$LAYOUT_BIN/ip" "$LAYOUT_BIN/resolvectl" "$LAYOUT_BIN/systemctl" "$LAYOUT_BIN/docker" "$LAYOUT_BIN/timeout"
 cat > "$TEST_DIR/meminfo" << 'EOF'
 MemTotal:        1000 kB
 MemFree:          100 kB
@@ -80,26 +99,60 @@ Cached:           200 kB
 SwapTotal:        200 kB
 SwapFree:         150 kB
 EOF
-sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=de/' "$ROOT/etc/default/foxly-motd"
+touch "$TEST_DIR/reboot-required"
+sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=de/; s/^SHOW_DOCKER=.*/SHOW_DOCKER=yes/' "$ROOT/etc/default/foxly-motd"
 rm -f "$ROOT/etc/default/foxly-motd.bak"
 PATH="$LAYOUT_BIN:$PATH" \
     FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
     FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
     FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
     FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
     SSH_CONNECTION='203.0.113.5 12345 192.0.2.10 22' \
     "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout"
-assert_contains "$TEST_DIR/layout" 'eth0: 192.0.2.10'
-assert_contains "$TEST_DIR/layout" 'eth1: 198.51.100.20'
+assert_contains "$TEST_DIR/layout" 'eth0: 192.0.2.10/24'
+assert_contains "$TEST_DIR/layout" 'eth1: 198.51.100.20/24'
+assert_contains "$TEST_DIR/layout" 'DNS-Server:           10.100.0.1'
+assert_contains "$TEST_DIR/layout" '                      1.1.1.1'
 assert_matches "$TEST_DIR/layout" '^RAM benutzt: +60,0%'
 assert_matches "$TEST_DIR/layout" 'Swap benutzt: +25,0%'
 assert_matches "$TEST_DIR/layout" 'Remote Host: +203.0.113.5'
+assert_contains "$TEST_DIR/layout" 'Systemd-Dienste: 2 fehlgeschlagen'
+assert_contains "$TEST_DIR/layout" 'Neustart nötig: Ja'
+assert_contains "$TEST_DIR/layout" 'Docker-Container  aktiv: 2 · gestoppt: 1 · fehlerhaft: 1 · Neustart: 1'
 right_column=$(awk '/Systemlaufzeit:/ {print index($0, "Systemlaufzeit:")}' "$TEST_DIR/layout")
 user_column=$(awk '/Aktueller Nutzer:/ {print index($0, "Aktueller Nutzer:")}' "$TEST_DIR/layout")
 remote_column=$(awk '/Remote Host:/ {print index($0, "Remote Host:")}' "$TEST_DIR/layout")
 [[ "$right_column" == 52 ]] || fail "Systemlaufzeit starts in column $right_column instead of 52"
 [[ "$user_column" == "$right_column" ]] || fail 'Aktueller Nutzer is not aligned with the right column'
 [[ "$remote_column" == "$right_column" ]] || fail 'Remote Host is not aligned with Aktueller Nutzer'
+
+printf 'Test: PAM and login-session remote host fallbacks\n'
+env -u SSH_CONNECTION -u SSH_CLIENT \
+    PATH="$LAYOUT_BIN:$PATH" \
+    PAM_RHOST='198.51.100.42' \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-pam"
+assert_matches "$TEST_DIR/layout-pam" 'Remote Host: +198.51.100.42'
+
+cat > "$LAYOUT_BIN/who" << 'EOF'
+#!/usr/bin/env bash
+printf 'foxly pts/0 2026-07-16 12:00 (203.0.113.77)\n'
+EOF
+chmod +x "$LAYOUT_BIN/who"
+env -u SSH_CONNECTION -u SSH_CLIENT -u PAM_RHOST \
+    PATH="$LAYOUT_BIN:$PATH" \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-who"
+assert_matches "$TEST_DIR/layout-who" 'Remote Host: +203.0.113.77'
 sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=auto/' "$ROOT/etc/default/foxly-motd"
 rm -f "$ROOT/etc/default/foxly-motd.bak"
 
