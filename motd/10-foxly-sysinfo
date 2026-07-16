@@ -220,6 +220,10 @@ if [[ "$LANG_CODE" == de ]]; then
     docker_stopped="gestoppt"
     docker_unhealthy="fehlerhaft"
     docker_restarting="Neustart"
+    network_group="[ NETZWERK ]"
+    resources_group="[ RESSOURCEN ]"
+    session_group="[ SITZUNG ]"
+    health_group="[ SYSTEMSTATUS ]"
 else
     heading="System information at"
     ip_label="IP address(es):"
@@ -241,6 +245,10 @@ else
     docker_stopped="stopped"
     docker_unhealthy="unhealthy"
     docker_restarting="restarting"
+    network_group="[ NETWORK ]"
+    resources_group="[ RESOURCES ]"
+    session_group="[ SESSION ]"
+    health_group="[ SYSTEM HEALTH ]"
 fi
 
 localize_number() {
@@ -254,8 +262,26 @@ print_dashboard_row() {
         "$COLOR" "$right_label" "$RESET" "$right_value"
 }
 
+print_status_row() {
+    local left_label=$1 left_value=$2 left_color=$3 right_label=$4 right_value=$5 right_color=$6
+    local left_padding=$((28 - ${#left_value}))
+    ((left_padding < 0)) && left_padding=0
+    printf '%s%-21s%s %s%s%s%*s %s%-18s%s %s%s%s\n' \
+        "$COLOR" "$left_label" "$RESET" "$left_color" "$left_value" "$RESET" "$left_padding" '' \
+        "$COLOR" "$right_label" "$RESET" "$right_color" "$right_value" "$RESET"
+}
+
 print_left_continuation() {
     printf '%-21s %-28s\n' '' "$1"
+}
+
+print_detail_row() {
+    local label=$1 value=$2
+    printf '%s%-21s%s %s\n' "$COLOR" "$label" "$RESET" "$value"
+}
+
+print_group_heading() {
+    printf '%s%s%s\n' "$GREEN" "$1" "$RESET"
 }
 
 print_box() {
@@ -285,6 +311,7 @@ print_box() {
 
 dashboard_output=$(
     printf '%s%s %s%s\n\n' "$COLOR" "$heading" "$(date '+%d.%m.%Y %H:%M:%S')" "$RESET"
+
     ip_lines=()
     while IFS= read -r ip_line; do
         if ((${#ip_line} > 28)) && [[ "$ip_line" == *': '* ]]; then
@@ -297,19 +324,9 @@ dashboard_output=$(
         done
         ip_lines+=("$ip_line")
     done < <(get_ipv4s)
-    print_dashboard_row "$ip_label" "${ip_lines[0]:-N/A}" "$uptime_label" "$(format_uptime "$uptime_seconds")"
-    for ((i = 1; i < ${#ip_lines[@]}; i++)); do
-        print_left_continuation "${ip_lines[$i]}"
-    done
-    printf '\n'
-    print_dashboard_row "$load_label" "$(localize_number "$load_pct")" "$processes_label" "$processes"
-    printf '\n'
-    print_dashboard_row "$memory_label" "$(localize_number "$memory_usage")" "$swap_label" "$(localize_number "$swap_usage")"
-    printf '\n'
-    print_dashboard_row "$disk_label" "$disk_free" "$user_label" "$(id -un)"
-    printf '\n'
+
+    dns_lines=()
     if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
-        dns_lines=()
         while IFS= read -r dns_line; do
             while ((${#dns_line} > 28)); do
                 dns_lines+=("${dns_line:0:28}")
@@ -317,16 +334,37 @@ dashboard_output=$(
             done
             dns_lines+=("$dns_line")
         done < <(get_dns_servers)
-        print_dashboard_row "$dns_label" "${dns_lines[0]:-N/A}" 'Remote Host:' "$(remote_host)"
+    fi
+
+    print_group_heading "$network_group"
+    print_detail_row "$ip_label" "${ip_lines[0]:-N/A}"
+    for ((i = 1; i < ${#ip_lines[@]}; i++)); do
+        print_left_continuation "${ip_lines[$i]}"
+    done
+    if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
+        print_detail_row "$dns_label" "${dns_lines[0]:-N/A}"
         for ((i = 1; i < ${#dns_lines[@]}; i++)); do
             print_left_continuation "${dns_lines[$i]}"
         done
-    else
-        print_dashboard_row '' '' 'Remote Host:' "$(remote_host)"
     fi
+
     printf '\n'
 
+    print_group_heading "$resources_group"
+    print_dashboard_row "$load_label" "$(localize_number "$load_pct")" "$processes_label" "$processes"
+    print_dashboard_row "$memory_label" "$(localize_number "$memory_usage")" "$swap_label" "$(localize_number "$swap_usage")"
+    print_detail_row "$disk_label" "$disk_free"
+
+    printf '\n'
+
+    print_group_heading "$session_group"
+    print_detail_row "$uptime_label" "$(format_uptime "$uptime_seconds")"
+    print_detail_row "$user_label" "$(id -un)"
+    print_detail_row 'Remote Host:' "$(remote_host)"
+
     if [[ "$SHOW_SYSTEM_HEALTH" == yes ]]; then
+        printf '\n'
+        print_group_heading "$health_group"
         failed_services=$(failed_service_count)
         failed_color=$GREEN
         [[ "$failed_services" =~ ^[0-9]+$ ]] || failed_color=$YELLOW
@@ -337,9 +375,8 @@ dashboard_output=$(
             reboot_required=$yes_label
             reboot_color=$YELLOW
         fi
-        printf '%s⚙ %s%s %s%s %s%s · %s%s%s %s%s%s\n\n' \
-            "$COLOR" "$failed_services_label" "$RESET" "$failed_color" "$failed_services" "$failed_services_suffix" "$RESET" \
-            "$COLOR" "$reboot_label" "$RESET" "$reboot_color" "$reboot_required" "$RESET"
+        print_status_row "$failed_services_label" "$failed_services $failed_services_suffix" "$failed_color" \
+            "$reboot_label" "$reboot_required" "$reboot_color"
     fi
 )
 print_box "$dashboard_output"

@@ -6,7 +6,7 @@ Ein schnelles, updatefähiges System-Dashboard für SSH-Logins auf Debian und Ub
 
 ## Deutsch
 
-Foxly MOTD zeigt Hostname, Betriebssystem, IP-Adressen mit CIDR-Präfix, DNS-Server, Uptime, Systemlast, RAM, Swap, Speicherplatz, systemd-Zustand, Neustartbedarf, Docker-Status und verfügbare Paketupdates auf Deutsch oder Englisch. Netzwerk- und APT-Aufrufe werden nicht während des Logins ausgeführt: systemd aktualisiert die Paketinformationen im Hintergrund, während das MOTD ausschließlich lokale und gecachte Daten liest.
+Foxly MOTD zeigt Hostname, Betriebssystem, IP-Adressen mit CIDR-Präfix, DNS-Server, Uptime, Systemlast, RAM, Swap, Speicherplatz, systemd-Zustand, Neustartbedarf, Docker-Status und verfügbare Paketupdates auf Deutsch oder Englisch. Die Systeminformationen sind dabei übersichtlich in Netzwerk, Ressourcen, Sitzung und Systemstatus gruppiert. Netzwerk- und APT-Aufrufe werden nicht während des Logins ausgeführt: systemd aktualisiert die Paketinformationen im Hintergrund, während das MOTD ausschließlich lokale und gecachte Daten liest.
 
 ### Unterstützte Systeme
 
@@ -214,7 +214,7 @@ Konfiguration, Cache und Backups bleiben bewusst erhalten. Sie können nach eine
 
 ## English
 
-Foxly MOTD is a fast, updateable German and English system dashboard for Debian and Ubuntu SSH logins. It includes IP addresses with CIDR prefixes, DNS servers, systemd and reboot health, and detailed Docker states. Package metadata is refreshed by a systemd timer, so the login path performs no APT or network requests.
+Foxly MOTD is a fast, updateable German and English system dashboard for Debian and Ubuntu SSH logins. It includes IP addresses with CIDR prefixes, DNS servers, systemd and reboot health, and detailed Docker states. System information is grouped into network, resources, session, and system health sections. Package metadata is refreshed by a systemd timer, so the login path performs no APT or network requests.
 
 ### Installation
 
