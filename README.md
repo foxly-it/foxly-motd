@@ -6,7 +6,7 @@ Ein schnelles, updatefähiges System-Dashboard für SSH-Logins auf Debian und Ub
 
 ## Deutsch
 
-Foxly MOTD zeigt Hostname, Betriebssystem, IP-Adressen mit CIDR-Präfix, DNS-Server, Uptime, Systemlast, RAM, Swap, Speicherplatz, systemd-Zustand, Neustartbedarf, Docker-Status und verfügbare Paketupdates auf Deutsch oder Englisch. Die Systeminformationen sind dabei übersichtlich in Netzwerk, Ressourcen, Sitzung und Systemstatus gruppiert. Netzwerk- und APT-Aufrufe werden nicht während des Logins ausgeführt: systemd aktualisiert die Paketinformationen im Hintergrund, während das MOTD ausschließlich lokale und gecachte Daten liest.
+Foxly MOTD zeigt Hostname, Betriebssystem, IP-Adressen mit CIDR-Präfix, DNS-Server, Uptime, Systemlast, RAM, Swap, Speicherplatz, systemd-Zustand, Neustartbedarf, Docker-Status und verfügbare Paketupdates auf Deutsch oder Englisch. Die Systeminformationen sind dabei in einem platzsparenden dreispaltigen Raster nach Netzwerk, Ressourcen, Sitzung, Systemstatus und Paket-Updates gruppiert. Netzwerk- und APT-Aufrufe werden nicht während des Logins ausgeführt: systemd aktualisiert die Paketinformationen im Hintergrund, während das MOTD ausschließlich lokale und gecachte Daten liest.
 
 ### Unterstützte Systeme
 
@@ -42,6 +42,8 @@ Der Installer installiert fehlende Kernabhängigkeiten, übernimmt vorhandene Ei
 - `foxly-motd-update.timer`: prüft täglich auf neue Foxly-MOTD-Releases
 
 Softwareupdates laufen standardmäßig im Modus `notify`: Ein neues Release wird im MOTD angekündigt, aber nicht automatisch installiert.
+
+Auf der [Website](https://motd.foxly.de/#configurator) steht ein visueller Konfigurator bereit. Module und Darstellung können dort ausgewählt, sofort in einer Terminal-Vorschau geprüft und anschließend als vollständige Konfiguration kopiert werden. Die Verarbeitung findet ausschließlich lokal im Browser statt.
 
 Bei einer interaktiven Erstinstallation fragt der Installer nach `auto`, `de` oder `en`. `auto` verwendet die Locale des SSH-Logins beziehungsweise des Betriebssystems. Für unbeaufsichtigte Installationen kann die Sprache direkt übergeben werden:
 
@@ -152,15 +154,23 @@ MOTD_LANGUAGE=auto
 COLOR_MODE=always
 USE_LOLCAT=yes
 FIGLET_FONT=slant
+SHOW_NETWORK=yes
 SHOW_NETWORK_DETAILS=yes
+SHOW_RESOURCES=yes
+SHOW_SESSION=yes
 SHOW_SYSTEM_HEALTH=yes
 SHOW_DOCKER=yes
 SHOW_PACKAGE_UPDATES=yes
+SHOW_PACKAGE_NAMES=no
+PACKAGE_NAME_LIMIT=5
 SHOW_UPDATE_NOTICE=yes
+SHOW_FRAME=yes
 UPDATE_MODE=notify
 ```
 
-Erlaubte Werte für Schalter sind `yes` und `no`. `SHOW_NETWORK_DETAILS` steuert die DNS-Anzeige, `SHOW_SYSTEM_HEALTH` die Anzeige fehlgeschlagener systemd-Dienste und eines erforderlichen Neustarts. `MOTD_LANGUAGE` akzeptiert `auto`, `de` und `en`; `COLOR_MODE` akzeptiert `always` und `never`; `UPDATE_MODE` akzeptiert `notify` und `automatic`.
+Erlaubte Werte für Schalter sind `yes` und `no`. `SHOW_NETWORK`, `SHOW_RESOURCES`, `SHOW_SESSION`, `SHOW_SYSTEM_HEALTH` und `SHOW_PACKAGE_UPDATES` steuern die Module im dreispaltigen Raster. `SHOW_NETWORK_DETAILS` ergänzt die DNS-Anzeige. Mit `SHOW_PACKAGE_NAMES` und `PACKAGE_NAME_LIMIT` lässt sich eine begrenzte Paketliste einblenden; standardmäßig bleibt die Paketmeldung kompakt. `SHOW_FRAME` steuert den Außenrahmen. `MOTD_LANGUAGE` akzeptiert `auto`, `de` und `en`; `COLOR_MODE` akzeptiert `always` und `never`; `UPDATE_MODE` akzeptiert `notify` und `automatic`.
+
+Bei einem Upgrade bleibt eine vorhandene `/etc/default/foxly-motd` erhalten. Der Installer ergänzt ausschließlich fehlende Konfigurationsschlüssel mit den aktuellen Standardwerten. Bereits gesetzte Werte und eigene zusätzliche Einträge werden nicht überschrieben.
 
 ### Datenquellen und Login-Verhalten
 
@@ -214,7 +224,7 @@ Konfiguration, Cache und Backups bleiben bewusst erhalten. Sie können nach eine
 
 ## English
 
-Foxly MOTD is a fast, updateable German and English system dashboard for Debian and Ubuntu SSH logins. It includes IP addresses with CIDR prefixes, DNS servers, systemd and reboot health, and detailed Docker states. System information is grouped into network, resources, session, and system health sections. Package metadata is refreshed by a systemd timer, so the login path performs no APT or network requests.
+Foxly MOTD is a fast, updateable German and English system dashboard for Debian and Ubuntu SSH logins. It includes IP addresses with CIDR prefixes, DNS servers, systemd and reboot health, and detailed Docker states. System information is arranged in a compact three-column grid for network, resources, session, system health, and package updates. Package metadata is refreshed by a systemd timer, so the login path performs no APT or network requests.
 
 ### Installation
 
@@ -227,6 +237,8 @@ The interactive installer asks whether the MOTD should use automatic locale dete
 ```bash
 curl -fsSL https://motd.foxly.de/install.sh | sudo bash -s -- --language en
 ```
+
+The [visual configurator](https://motd.foxly.de/#configurator) provides an immediate terminal preview and generates a complete configuration locally in the browser. During upgrades, the installer preserves existing settings and only appends newly introduced options with compatible defaults.
 
 ### Migrating the legacy dotfiles version
 

@@ -284,6 +284,16 @@ set_config_value() {
     fi
 }
 
+add_missing_config_defaults() {
+    local line key config_file="${ROOT}/etc/default/foxly-motd"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ "$line" == *=* && "$line" != \#* ]] || continue
+        key=${line%%=*}
+        grep -q "^${key}=" "$config_file" || printf '%s\n' "$line" >> "$config_file"
+    done < "$SCRIPT_DIR/config/foxly-motd"
+}
+
+add_missing_config_defaults
 if $LANGUAGE_EXPLICIT || ! grep -q '^MOTD_LANGUAGE=' "${ROOT}/etc/default/foxly-motd"; then
     set_config_value MOTD_LANGUAGE "$LANGUAGE_CHOICE"
 fi

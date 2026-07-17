@@ -10,10 +10,16 @@ REBOOT_REQUIRED_FILE="${FOXLY_MOTD_REBOOT_REQUIRED_FILE:-/var/run/reboot-require
 MOTD_LANGUAGE=auto
 COLOR_MODE=always
 SHOW_NETWORK_DETAILS=yes
+SHOW_NETWORK=yes
+SHOW_RESOURCES=yes
+SHOW_SESSION=yes
 SHOW_SYSTEM_HEALTH=yes
 SHOW_DOCKER=yes
 SHOW_PACKAGE_UPDATES=yes
+SHOW_PACKAGE_NAMES=no
+PACKAGE_NAME_LIMIT=5
 SHOW_UPDATE_NOTICE=yes
+SHOW_FRAME=yes
 # shellcheck source=/dev/null
 [[ -r "$CONFIG_FILE" ]] && . "$CONFIG_FILE"
 
@@ -34,9 +40,12 @@ resolve_language() {
 
 LANG_CODE=$(resolve_language)
 
-for flag in SHOW_NETWORK_DETAILS SHOW_SYSTEM_HEALTH SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_UPDATE_NOTICE; do
+for flag in SHOW_NETWORK SHOW_NETWORK_DETAILS SHOW_RESOURCES SHOW_SESSION SHOW_SYSTEM_HEALTH \
+    SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_PACKAGE_NAMES SHOW_UPDATE_NOTICE SHOW_FRAME; do
     [[ "${!flag}" == yes || "${!flag}" == no ]] || printf -v "$flag" no
 done
+[[ "$PACKAGE_NAME_LIMIT" =~ ^[1-9][0-9]*$ ]] || PACKAGE_NAME_LIMIT=5
+((PACKAGE_NAME_LIMIT > 20)) && PACKAGE_NAME_LIMIT=20
 case "$COLOR_MODE" in always | never) ;; *) COLOR_MODE=always ;; esac
 [[ -n "${FOXLY_MOTD_FORCE_COLOR:-}" ]] && COLOR_MODE=always
 
@@ -190,7 +199,7 @@ cache_value() {
 
 cpus=$(nproc 2> /dev/null || printf 1)
 load_raw=$(awk '{print $1}' /proc/loadavg 2> /dev/null || printf 0)
-load_pct=$(awk -v load="$load_raw" -v cpus="$cpus" 'BEGIN {if (cpus < 1) cpus=1; printf "%.1f%%", load*100/cpus}')
+load_pct=$(awk -v load_value="$load_raw" -v cpus="$cpus" 'BEGIN {if (cpus < 1) cpus=1; printf "%.1f%%", load_value*100/cpus}')
 memory_usage=$(memory_usage)
 memory_usage=${memory_usage:-N/A}
 swap_usage=$(swap_usage)
@@ -220,10 +229,16 @@ if [[ "$LANG_CODE" == de ]]; then
     docker_stopped="gestoppt"
     docker_unhealthy="fehlerhaft"
     docker_restarting="Neustart"
-    network_group="[ NETZWERK ]"
-    resources_group="[ RESSOURCEN ]"
-    session_group="[ SITZUNG ]"
-    health_group="[ SYSTEMSTATUS ]"
+    network_group="🌐 [ NETZWERK ]"
+    resources_group="📊 [ RESSOURCEN ]"
+    session_group="👤 [ SITZUNG ]"
+    health_group="⚙ [ SYSTEMSTATUS ]"
+    packages_group="📦 [ PAKET-UPDATES ]"
+    packages_available="Paket-Updates verfügbar,"
+    packages_security="davon %s Sicherheitsupdates."
+    packages_none="Keine Paket-Updates im Cache."
+    packages_pending="Update-Cache wird beim nächsten Timer-Lauf erstellt."
+    packages_more="und %s weitere"
 else
     heading="System information at"
     ip_label="IP address(es):"
@@ -245,43 +260,126 @@ else
     docker_stopped="stopped"
     docker_unhealthy="unhealthy"
     docker_restarting="restarting"
-    network_group="[ NETWORK ]"
-    resources_group="[ RESOURCES ]"
-    session_group="[ SESSION ]"
-    health_group="[ SYSTEM HEALTH ]"
+    network_group="🌐 [ NETWORK ]"
+    resources_group="📊 [ RESOURCES ]"
+    session_group="👤 [ SESSION ]"
+    health_group="⚙ [ SYSTEM HEALTH ]"
+    packages_group="📦 [ PACKAGE UPDATES ]"
+    packages_available="package updates available,"
+    packages_security="including %s security updates."
+    packages_none="No package updates in the cache."
+    packages_pending="The update cache will be created by the next timer run."
+    packages_more="and %s more"
 fi
 
 localize_number() {
     [[ "$LANG_CODE" == de ]] && printf '%s\n' "${1/./,}" || printf '%s\n' "$1"
 }
 
-print_dashboard_row() {
-    local left_label=$1 left_value=$2 right_label=$3 right_value=$4
-    printf '%s%-21s%s %-28s %s%-18s%s %s\n' \
-        "$COLOR" "$left_label" "$RESET" "$left_value" \
-        "$COLOR" "$right_label" "$RESET" "$right_value"
+CELL_WIDTH=35
+
+display_width() {
+    local plain=$1 icon
+    plain=${plain//$COLOR/}
+    plain=${plain//$GREEN/}
+    plain=${plain//$YELLOW/}
+    plain=${plain//$RESET/}
+    DISPLAY_WIDTH=${#plain}
+    # These emoji occupy two terminal cells, while Bash counts one character.
+    for icon in '🌐' '📊' '👤' '📦'; do
+        [[ "$plain" == *"$icon"* ]] && ((DISPLAY_WIDTH++))
+    done
 }
 
-print_status_row() {
-    local left_label=$1 left_value=$2 left_color=$3 right_label=$4 right_value=$5 right_color=$6
-    local left_padding=$((28 - ${#left_value}))
-    ((left_padding < 0)) && left_padding=0
-    printf '%s%-21s%s %s%s%s%*s %s%-18s%s %s%s%s\n' \
-        "$COLOR" "$left_label" "$RESET" "$left_color" "$left_value" "$RESET" "$left_padding" '' \
-        "$COLOR" "$right_label" "$RESET" "$right_color" "$right_value" "$RESET"
+print_padded() {
+    local value=$1 width=$2 padding
+    display_width "$value"
+    padding=$((width - DISPLAY_WIDTH))
+    ((padding < 0)) && padding=0
+    printf '%s%*s' "$value" "$padding" ''
 }
 
-print_left_continuation() {
-    printf '%-21s %-28s\n' '' "$1"
+wrap_text() {
+    local width=$1 text=$2 word line=""
+    local -a words
+    read -r -a words <<< "$text"
+    for word in "${words[@]}"; do
+        while ((${#word} > width)); do
+            [[ -z "$line" ]] || printf '%s\n' "$line"
+            printf '%s\n' "${word:0:width}"
+            word=${word:width}
+            line=""
+        done
+        if ((${#line} == 0)); then
+            line=$word
+        elif ((${#line} + 1 + ${#word} <= width)); then
+            line+=" $word"
+        else
+            printf '%s\n' "$line"
+            line=$word
+        fi
+    done
+    [[ -z "$line" ]] || printf '%s\n' "$line"
 }
 
-print_detail_row() {
-    local label=$1 value=$2
-    printf '%s%-21s%s %s\n' "$COLOR" "$label" "$RESET" "$value"
+print_compact_detail() {
+    local label=$1 value=$2 value_color=${3:-} line
+    line="$label $value"
+    display_width "$line"
+    if ((DISPLAY_WIDTH <= CELL_WIDTH)); then
+        printf '%s%s%s %s%s%s\n' "$COLOR" "$label" "$RESET" "$value_color" "$value" "$RESET"
+    else
+        printf '%s%s%s\n' "$COLOR" "$label" "$RESET"
+        wrap_text "$CELL_WIDTH" "$value" | while IFS= read -r line; do
+            printf '%s%s%s\n' "$value_color" "$line" "$RESET"
+        done
+    fi
 }
 
 print_group_heading() {
     printf '%s%s%s\n' "$GREEN" "$1" "$RESET"
+}
+
+print_package_names() {
+    local package_list=$1 total=$2 item summary="" more index=0
+    local -a package_items
+    IFS=',' read -r -a package_items <<< "$package_list"
+    for item in "${package_items[@]}"; do
+        item=${item#"${item%%[![:space:]]*}"}
+        item=${item%"${item##*[![:space:]]}"}
+        [[ -n "$item" && "$item" != +* ]] || continue
+        ((index < PACKAGE_NAME_LIMIT)) || break
+        summary+="${summary:+ · }$item"
+        ((index++))
+    done
+    [[ -z "$summary" ]] || wrap_text "$CELL_WIDTH" "$summary"
+    more=$((total - index))
+    if ((more > 0)); then
+        printf '%s\n' "${packages_more//%s/$more}"
+    fi
+}
+
+print_grid_row() {
+    local first=$1 second=${2:-} third=${3:-} row max=0 line
+    local -a first_lines second_lines third_lines
+    while IFS= read -r line; do first_lines+=("$line"); done <<< "$first"
+    while IFS= read -r line; do second_lines+=("$line"); done <<< "$second"
+    while IFS= read -r line; do third_lines+=("$line"); done <<< "$third"
+    ((${#first_lines[@]} > max)) && max=${#first_lines[@]}
+    ((${#second_lines[@]} > max)) && max=${#second_lines[@]}
+    ((${#third_lines[@]} > max)) && max=${#third_lines[@]}
+    for ((row = 0; row < max; row++)); do
+        print_padded "${first_lines[row]:-}" "$CELL_WIDTH"
+        if [[ -n "$second" ]]; then
+            printf '   '
+            print_padded "${second_lines[row]:-}" "$CELL_WIDTH"
+        fi
+        if [[ -n "$third" ]]; then
+            printf '   '
+            print_padded "${third_lines[row]:-}" "$CELL_WIDTH"
+        fi
+        printf '\n'
+    done
 }
 
 print_box() {
@@ -296,13 +394,15 @@ print_box() {
         plain_lines+=("$line")
     done < <(printf '%s\n' "$content" | sed $'s/\033\\[[0-9;]*m//g')
     for line in "${plain_lines[@]}"; do
-        ((${#line} > width)) && width=${#line}
+        display_width "$line"
+        ((DISPLAY_WIDTH > width)) && width=$DISPLAY_WIDTH
     done
     printf -v horizontal '%*s' "$((width + 2))" ''
     horizontal=${horizontal// /─}
     printf '%s╭%s╮%s\n' "$COLOR" "$horizontal" "$RESET"
     for ((i = 0; i < ${#colored_lines[@]}; i++)); do
-        padding=$((width - ${#plain_lines[i]}))
+        display_width "${plain_lines[i]}"
+        padding=$((width - DISPLAY_WIDTH))
         printf '%s│%s %s%*s %s│%s\n' \
             "$COLOR" "$RESET" "${colored_lines[i]}" "$padding" '' "$COLOR" "$RESET"
     done
@@ -336,35 +436,49 @@ dashboard_output=$(
         done < <(get_dns_servers)
     fi
 
-    print_group_heading "$network_group"
-    print_detail_row "$ip_label" "${ip_lines[0]:-N/A}"
-    for ((i = 1; i < ${#ip_lines[@]}; i++)); do
-        print_left_continuation "${ip_lines[$i]}"
-    done
-    if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
-        print_detail_row "$dns_label" "${dns_lines[0]:-N/A}"
-        for ((i = 1; i < ${#dns_lines[@]}; i++)); do
-            print_left_continuation "${dns_lines[$i]}"
-        done
+    dashboard_cards=()
+
+    if [[ "$SHOW_NETWORK" == yes ]]; then
+        network_content=$(
+            print_group_heading "$network_group"
+            print_compact_detail "$ip_label" "${ip_lines[0]:-N/A}"
+            for ((i = 1; i < ${#ip_lines[@]}; i++)); do
+                printf '%s\n' "${ip_lines[$i]}"
+            done
+            if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
+                print_compact_detail "$dns_label" "${dns_lines[0]:-N/A}"
+                for ((i = 1; i < ${#dns_lines[@]}; i++)); do
+                    printf '%s\n' "${dns_lines[$i]}"
+                done
+            fi
+        )
+        dashboard_cards+=("$network_content")
     fi
 
-    printf '\n'
+    if [[ "$SHOW_RESOURCES" == yes ]]; then
+        resources_content=$(
+            print_group_heading "$resources_group"
+            print_compact_detail "$load_label" "$(localize_number "$load_pct")"
+            print_compact_detail "$processes_label" "$processes"
+            print_compact_detail "$memory_label" "$(localize_number "$memory_usage")"
+            print_compact_detail "$swap_label" "$(localize_number "$swap_usage")"
+            print_compact_detail "$disk_label" "$disk_free"
+        )
+        dashboard_cards+=("$resources_content")
+    fi
 
-    print_group_heading "$resources_group"
-    print_dashboard_row "$load_label" "$(localize_number "$load_pct")" "$processes_label" "$processes"
-    print_dashboard_row "$memory_label" "$(localize_number "$memory_usage")" "$swap_label" "$(localize_number "$swap_usage")"
-    print_detail_row "$disk_label" "$disk_free"
+    if [[ "$SHOW_SESSION" == yes ]]; then
+        session_content=$(
+            print_group_heading "$session_group"
+            print_compact_detail "$uptime_label" "$(format_uptime "$uptime_seconds")"
+            print_compact_detail "$user_label" "$(id -un)"
+            print_compact_detail 'Remote Host:' "$(remote_host)"
+        )
+        dashboard_cards+=("$session_content")
+    fi
 
-    printf '\n'
-
-    print_group_heading "$session_group"
-    print_detail_row "$uptime_label" "$(format_uptime "$uptime_seconds")"
-    print_detail_row "$user_label" "$(id -un)"
-    print_detail_row 'Remote Host:' "$(remote_host)"
-
+    health_content=""
     if [[ "$SHOW_SYSTEM_HEALTH" == yes ]]; then
-        printf '\n'
-        print_group_heading "$health_group"
         failed_services=$(failed_service_count)
         failed_color=$GREEN
         [[ "$failed_services" =~ ^[0-9]+$ ]] || failed_color=$YELLOW
@@ -375,11 +489,49 @@ dashboard_output=$(
             reboot_required=$yes_label
             reboot_color=$YELLOW
         fi
-        print_status_row "$failed_services_label" "$failed_services $failed_services_suffix" "$failed_color" \
-            "$reboot_label" "$reboot_required" "$reboot_color"
+        health_content=$(
+            print_group_heading "$health_group"
+            print_compact_detail "$failed_services_label" "$failed_services $failed_services_suffix" "$failed_color"
+            print_compact_detail "$reboot_label" "$reboot_required" "$reboot_color"
+        )
+        dashboard_cards+=("$health_content")
     fi
+
+    packages_content=""
+    if [[ "$SHOW_PACKAGE_UPDATES" == yes ]]; then
+        updates=$(cache_value updates)
+        security=$(cache_value security)
+        packages=$(cache_value packages)
+        packages_content=$(
+            print_group_heading "$packages_group"
+            if [[ "$updates" =~ ^[0-9]+$ ]]; then
+                if ((updates)); then
+                    wrap_text "$CELL_WIDTH" "$updates $packages_available"
+                    security_line=${packages_security//%s/${security:-0}}
+                    printf '%s\n' "$security_line"
+                    if [[ "$SHOW_PACKAGE_NAMES" == yes && -n "$packages" ]]; then
+                        print_package_names "$packages" "$updates"
+                    fi
+                else
+                    wrap_text "$CELL_WIDTH" "$packages_none"
+                fi
+            else
+                wrap_text "$CELL_WIDTH" "$packages_pending"
+            fi
+        )
+        dashboard_cards+=("$packages_content")
+    fi
+
+    for ((i = 0; i < ${#dashboard_cards[@]}; i += 3)); do
+        ((i == 0)) || printf '\n'
+        print_grid_row "${dashboard_cards[i]}" "${dashboard_cards[i + 1]:-}" "${dashboard_cards[i + 2]:-}"
+    done
 )
-print_box "$dashboard_output"
+if [[ "$SHOW_FRAME" == yes ]]; then
+    print_box "$dashboard_output"
+else
+    printf '%s\n' "$dashboard_output"
+fi
 printf '\n'
 
 if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
@@ -402,36 +554,6 @@ if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
             "$YELLOW" "$docker_stopped" "$stopped" "$RESET" \
             "$YELLOW" "$docker_unhealthy" "$unhealthy" "$RESET" \
             "$YELLOW" "$docker_restarting" "$restarting" "$RESET"
-    fi
-fi
-
-if [[ "$SHOW_PACKAGE_UPDATES" == yes ]]; then
-    updates=$(cache_value updates)
-    security=$(cache_value security)
-    generated=$(cache_value generated)
-    packages=$(cache_value packages)
-    if [[ "$updates" =~ ^[0-9]+$ ]]; then
-        if ((updates)); then
-            if [[ "$LANG_CODE" == de ]]; then
-                printf '%s📦 %s Paket-Updates verfügbar, davon %s Sicherheitsupdates.%s\n' "$COLOR" "$updates" "${security:-0}" "$RESET"
-            else
-                printf '%s📦 %s package updates available, including %s security updates.%s\n' "$COLOR" "$updates" "${security:-0}" "$RESET"
-            fi
-            [[ -n "$packages" ]] && printf '   %s\n' "$packages"
-        else
-            if [[ "$LANG_CODE" == de ]]; then
-                printf '%s📦 Keine Paket-Updates im letzten Cache-Lauf.%s\n' "$COLOR" "$RESET"
-            else
-                printf '%s📦 No package updates in the latest cache run.%s\n' "$COLOR" "$RESET"
-            fi
-        fi
-        [[ -n "$generated" ]] && printf '   Cache: %s\n' "$generated"
-    else
-        if [[ "$LANG_CODE" == de ]]; then
-            printf '%s📦 Update-Cache wird beim nächsten Timer-Lauf erstellt.%s\n' "$YELLOW" "$RESET"
-        else
-            printf '%s📦 The update cache will be created by the next timer run.%s\n' "$YELLOW" "$RESET"
-        fi
     fi
 fi
 

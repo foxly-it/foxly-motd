@@ -25,7 +25,13 @@ assert_file "$ROOT/etc/systemd/system/foxly-motd-cache.timer"
 assert_contains "$ROOT/var/lib/foxly-motd/version" dev
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=de
 assert_contains "$ROOT/etc/default/foxly-motd" SHOW_NETWORK_DETAILS=yes
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_NETWORK=yes
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_RESOURCES=yes
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_SESSION=yes
 assert_contains "$ROOT/etc/default/foxly-motd" SHOW_SYSTEM_HEALTH=yes
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_PACKAGE_NAMES=no
+assert_contains "$ROOT/etc/default/foxly-motd" PACKAGE_NAME_LIMIT=5
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_FRAME=yes
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --no-refresh --no-timers
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=de
 
@@ -101,6 +107,13 @@ SwapTotal:        200 kB
 SwapFree:         150 kB
 EOF
 touch "$TEST_DIR/reboot-required"
+mkdir -p "$ROOT/var/cache/foxly-motd"
+cat > "$ROOT/var/cache/foxly-motd/packages" << 'EOF'
+generated=2026-07-17 12:00:00
+updates=3
+security=0
+packages=curl, openssl, linux-image
+EOF
 sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=de/; s/^SHOW_DOCKER=.*/SHOW_DOCKER=yes/' "$ROOT/etc/default/foxly-motd"
 rm -f "$ROOT/etc/default/foxly-motd.bak"
 PATH="$LAYOUT_BIN:$PATH" \
@@ -113,36 +126,37 @@ PATH="$LAYOUT_BIN:$PATH" \
     "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout"
 assert_contains "$TEST_DIR/layout" 'eth0: 192.0.2.10/24'
 assert_contains "$TEST_DIR/layout" 'eth1: 198.51.100.20/24'
-assert_contains "$TEST_DIR/layout" 'DNS-Server:           10.100.0.1'
-assert_contains "$TEST_DIR/layout" '                      1.1.1.1'
-assert_matches "$TEST_DIR/layout" '^│ RAM benutzt: +60,0%'
+assert_contains "$TEST_DIR/layout" 'DNS-Server: 10.100.0.1'
+assert_contains "$TEST_DIR/layout" '1.1.1.1'
+assert_matches "$TEST_DIR/layout" 'RAM benutzt: +60,0%'
 assert_matches "$TEST_DIR/layout" 'Swap benutzt: +25,0%'
 assert_matches "$TEST_DIR/layout" 'Remote Host: +203.0.113.5'
-assert_contains "$TEST_DIR/layout" '[ NETZWERK ]'
-assert_contains "$TEST_DIR/layout" '[ RESSOURCEN ]'
-assert_contains "$TEST_DIR/layout" '[ SITZUNG ]'
-assert_contains "$TEST_DIR/layout" '[ SYSTEMSTATUS ]'
-assert_matches "$TEST_DIR/layout" '^│ Systemd-Dienste: +2 fehlgeschlagen +Neustart nötig: +Ja +│$'
-assert_not_contains "$TEST_DIR/layout" '⚙'
+assert_contains "$TEST_DIR/layout" '🌐 [ NETZWERK ]'
+assert_contains "$TEST_DIR/layout" '📊 [ RESSOURCEN ]'
+assert_contains "$TEST_DIR/layout" '👤 [ SITZUNG ]'
+assert_contains "$TEST_DIR/layout" '⚙ [ SYSTEMSTATUS ]'
+assert_contains "$TEST_DIR/layout" '📦 [ PAKET-UPDATES ]'
+assert_matches "$TEST_DIR/layout" 'Systemd-Dienste: +2 fehlgeschlagen'
+assert_matches "$TEST_DIR/layout" 'Neustart nötig: +Ja'
+assert_contains "$TEST_DIR/layout" '3 Paket-Updates verfügbar,'
+assert_contains "$TEST_DIR/layout" 'davon 0 Sicherheitsupdates.'
 assert_contains "$TEST_DIR/layout" 'Docker-Container  aktiv: 2 · gestoppt: 1 · fehlerhaft: 1 · Neustart: 1'
 assert_matches "$TEST_DIR/layout" '^╭─+╮$'
 assert_matches "$TEST_DIR/layout" '^╰─+╯$'
 assert_matches "$TEST_DIR/layout" '^│ Systeminformationen am .+ +│$'
 blank_box_rows=$(grep -Ec '^│ +│$' "$TEST_DIR/layout")
-((blank_box_rows >= 4)) || fail "Expected at least 4 group separators, found $blank_box_rows"
-processes_column=$(awk '/Prozesse:/ {sub(/^│ /, ""); print index($0, "Prozesse:")}' "$TEST_DIR/layout")
-swap_column=$(awk '/Swap benutzt:/ {sub(/^│ /, ""); print index($0, "Swap benutzt:")}' "$TEST_DIR/layout")
-[[ "$processes_column" == 52 ]] || fail "Prozesse starts in inner column $processes_column instead of 52"
-[[ "$swap_column" == "$processes_column" ]] || fail 'Swap benutzt is not aligned with Prozesse'
-assert_matches "$TEST_DIR/layout" '^│ Systemlaufzeit: +[^│]+ +│$'
-assert_matches "$TEST_DIR/layout" '^│ Aktueller Nutzer: +[^│]+ +│$'
-assert_matches "$TEST_DIR/layout" '^│ Remote Host: +203\.0\.113\.5 +│$'
+((blank_box_rows >= 1)) || fail 'Expected a separator between dashboard rows'
+resources_column=$(LC_ALL=C awk '/RESSOURCEN/ {sub(/^│ /, ""); print index($0, "📊")}' "$TEST_DIR/layout")
+session_column=$(LC_ALL=C awk '/SITZUNG/ {sub(/^│ /, ""); print index($0, "👤")}' "$TEST_DIR/layout")
+[[ "$resources_column" == 41 ]] || fail "Resources starts in inner byte column $resources_column instead of 41"
+[[ "$session_column" == 81 ]] || fail "Session starts in inner byte column $session_column instead of 81"
 network_line=$(grep -nF '[ NETZWERK ]' "$TEST_DIR/layout" | cut -d: -f1)
 resources_line=$(grep -nF '[ RESSOURCEN ]' "$TEST_DIR/layout" | cut -d: -f1)
 session_line=$(grep -nF '[ SITZUNG ]' "$TEST_DIR/layout" | cut -d: -f1)
 health_line=$(grep -nF '[ SYSTEMSTATUS ]' "$TEST_DIR/layout" | cut -d: -f1)
-((network_line < resources_line && resources_line < session_line && session_line < health_line)) ||
-    fail 'Dashboard groups are not ordered as network, resources, session, health'
+packages_line=$(grep -nF '[ PAKET-UPDATES ]' "$TEST_DIR/layout" | cut -d: -f1)
+((network_line == resources_line && resources_line == session_line && session_line < health_line && health_line == packages_line)) ||
+    fail 'Dashboard groups are not arranged as a three-column grid'
 
 printf 'Test: PAM and login-session remote host fallbacks\n'
 env -u SSH_CONNECTION -u SSH_CLIENT \
@@ -170,14 +184,41 @@ env -u SSH_CONNECTION -u SSH_CLIENT -u PAM_RHOST \
     FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
     "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-who"
 assert_matches "$TEST_DIR/layout-who" 'Remote Host: +203.0.113.77'
+
+printf 'Test: modular groups, package names, and frameless output\n'
+sed -i.bak \
+    's/^SHOW_NETWORK=.*/SHOW_NETWORK=no/; s/^SHOW_SESSION=.*/SHOW_SESSION=no/; s/^SHOW_FRAME=.*/SHOW_FRAME=no/; s/^SHOW_PACKAGE_NAMES=.*/SHOW_PACKAGE_NAMES=yes/; s/^PACKAGE_NAME_LIMIT=.*/PACKAGE_NAME_LIMIT=2/' \
+    "$ROOT/etc/default/foxly-motd"
+rm -f "$ROOT/etc/default/foxly-motd.bak"
+PATH="$LAYOUT_BIN:$PATH" \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-modular"
+assert_not_contains "$TEST_DIR/layout-modular" '[ NETZWERK ]'
+assert_not_contains "$TEST_DIR/layout-modular" '[ SITZUNG ]'
+assert_not_contains "$TEST_DIR/layout-modular" '╭'
+assert_contains "$TEST_DIR/layout-modular" 'curl · openssl'
+assert_contains "$TEST_DIR/layout-modular" 'und 1 weitere'
+sed -i.bak \
+    's/^SHOW_NETWORK=.*/SHOW_NETWORK=yes/; s/^SHOW_SESSION=.*/SHOW_SESSION=yes/; s/^SHOW_FRAME=.*/SHOW_FRAME=yes/; s/^SHOW_PACKAGE_NAMES=.*/SHOW_PACKAGE_NAMES=no/; s/^PACKAGE_NAME_LIMIT=.*/PACKAGE_NAME_LIMIT=5/' \
+    "$ROOT/etc/default/foxly-motd"
+rm -f "$ROOT/etc/default/foxly-motd.bak"
 sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=auto/' "$ROOT/etc/default/foxly-motd"
 rm -f "$ROOT/etc/default/foxly-motd.bak"
 
 printf 'Test: configuration preservation and backup\n'
 printf '\nCUSTOM_SETTING=preserved\n' >> "$ROOT/etc/default/foxly-motd"
+sed -i.bak 's/^SHOW_FRAME=.*/SHOW_FRAME=no/; /^SHOW_PACKAGE_NAMES=/d; /^PACKAGE_NAME_LIMIT=/d' "$ROOT/etc/default/foxly-motd"
+rm -f "$ROOT/etc/default/foxly-motd.bak"
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --upgrade --no-refresh --no-timers
 assert_contains "$ROOT/etc/default/foxly-motd" CUSTOM_SETTING=preserved
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=auto
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_FRAME=no
+assert_contains "$ROOT/etc/default/foxly-motd" SHOW_PACKAGE_NAMES=no
+assert_contains "$ROOT/etc/default/foxly-motd" PACKAGE_NAME_LIMIT=5
 find "$ROOT/var/backups/foxly-motd" -type f -name '*.tar.gz' -print -quit | grep -q . || fail 'Upgrade backup missing'
 
 printf 'Test: recognized legacy migration\n'
