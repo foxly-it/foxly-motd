@@ -5,6 +5,7 @@ const root = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "docs", "index.html"), "utf8");
 const cname = fs.readFileSync(path.join(root, "docs", "CNAME"), "utf8").trim();
 const installer = fs.readFileSync(path.join(root, "docs", "install.sh"), "utf8");
+const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 
 function check(condition, message) {
     if (!condition) throw new Error(message);
@@ -24,7 +25,7 @@ check((html.match(/class="rainbow"/g) || []).length === 2, "Rainbow HomeLab prev
 check(html.includes("/ /_/ / __ \\/ __ `__ \\/ _ \\/ /"), "HomeLab ASCII art missing");
 check(html.includes("10.0.0.20/24") && html.includes("DNS-Server:"), "Network details missing from preview");
 check(html.includes("Systemd-Dienste:") && html.includes("fehlerhaft: 0"), "Health details missing from preview");
-check(html.includes("[ NETZWERK ]") && html.includes("[ RESSOURCEN ]") && html.includes("[ SITZUNG ]") && html.includes("[ SYSTEMSTATUS ]"), "Grouped German dashboard preview missing");
+check(html.includes("🌐 [ NETZWERK ]") && html.includes("📊 [ RESSOURCEN ]") && html.includes("👤 [ SITZUNG ]") && html.includes("⚙ [ SYSTEMSTATUS ]") && html.includes("📦 [ PAKET-UPDATES ]"), "Three-column German dashboard preview missing");
 check(html.includes("[ NETWORK ]") && html.includes("[ RESOURCES ]") && html.includes("[ SESSION ]") && html.includes("[ SYSTEM HEALTH ]"), "Grouped English dashboard preview missing");
 check(!html.includes("⚙ Systemd"), "Fragile system-health glyph remains in preview");
 check((html.match(/class="sysinfo-box"/g) || []).length === 2, "Framed system information preview missing");
@@ -35,6 +36,13 @@ check((html.match(/class="cursor" aria-hidden="true"/g) || []).length === 2, "Te
 check(html.includes("@keyframes cursor-blink") && html.includes("prefers-reduced-motion:reduce"), "Accessible cursor animation missing");
 check(html.includes("@keyframes terminal-settle") && html.includes("rotateY(-8deg) translateX(16px)"), "Terminal hover animation missing");
 check(html.includes("(hover:hover) and (pointer:fine)"), "Terminal hover capability guard missing");
+check(html.includes('id="configurator"') && html.includes('id="motd-configurator"'), "Visual configurator missing");
+check(html.includes('id="assistant-preview"') && html.includes('aria-live="polite"'), "Accessible live preview missing");
+check(html.includes('id="assistant-config"') && html.includes("copyAssistantConfig"), "Generated configuration output missing");
+check(html.includes('id="cfg-frame"') && html.includes('id="cfg-package-names"') && html.includes('id="cfg-package-limit"'), "Appearance and package controls missing");
+check(html.includes("SHOW_NETWORK=") && html.includes("SHOW_FRAME=") && html.includes("PACKAGE_NAME_LIMIT="), "Modular generated settings missing");
+check(html.includes("Existing values in /etc/default/foxly-motd are retained"), "Configuration migration notice missing");
+inlineScripts.forEach(script => new Function(script));
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
 check(!html.includes("http://"), "Insecure HTTP URL found");
 

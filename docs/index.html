@@ -16,6 +16,7 @@
         .wrap{width:min(1200px,calc(100% - 40px))}.hero{grid-template-columns:minmax(320px,.7fr) minmax(0,1.3fr);gap:48px}@media(max-width:1020px){.hero{grid-template-columns:1fr;padding-top:40px}.terminal{transform:none}}@media(max-width:600px){.wrap{width:min(100% - 24px,1200px)}}
         .terminal-prompt{display:block;margin-top:18px}.cursor{display:inline-block;width:.62em;height:1.05em;margin-left:.25em;background:#cbd5df;vertical-align:-.18em;animation:cursor-blink 1s steps(1,end) infinite}@keyframes cursor-blink{0%,48%{opacity:1}49%,100%{opacity:0}}@media(prefers-reduced-motion:reduce){.cursor{animation:none}}
         @keyframes terminal-settle{from{transform:perspective(900px) rotateZ(1deg) rotateY(-8deg) translateX(16px)}to{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0)}}@media(min-width:1021px) and (hover:hover) and (pointer:fine){.terminal{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0);transform-style:preserve-3d;transition:transform 280ms ease-in-out,box-shadow 280ms ease-in-out;animation:terminal-settle 700ms ease-out;will-change:transform}.terminal:hover{transform:perspective(900px) rotateZ(1deg) rotateY(-8deg) translateX(16px);box-shadow:0 30px 85px rgba(0,0,0,.48)}}@media(prefers-reduced-motion:reduce) and (min-width:1021px){.terminal{animation:none;transition:none}.terminal:hover{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0)}}
+        .configurator{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(0,1.28fr);gap:22px;align-items:start}.config-panel,.config-result{border:1px solid var(--border);border-radius:16px;background:var(--panel);padding:25px}.config-panel h3,.config-result h3{margin:0 0 16px}.config-field{display:grid;gap:7px;margin-bottom:20px;color:var(--muted);font-size:.9rem}.config-field select,.config-field input[type="number"]{width:100%;border:1px solid var(--border);border-radius:8px;background:#0d141b;color:var(--text);padding:10px 12px;font:inherit}.config-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}.config-option{display:flex;align-items:center;gap:9px;min-height:44px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--soft);cursor:pointer;font-size:.9rem}.config-option:has(input:disabled){opacity:.48;cursor:not-allowed}.config-option input{accent-color:var(--green)}.config-subtitle{margin:22px 0 10px;color:var(--green);font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.assistant-terminal{overflow:auto;border:1px solid var(--border);border-radius:11px;background:#090d11}.assistant-terminal pre{width:max-content;min-width:100%;padding:20px;font-size:12px;line-height:1.55}.generated-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}.generated-head h3{margin:0}.config-copy{border:0;border-radius:7px;padding:8px 11px;background:var(--green);color:#07110a;cursor:pointer;font-weight:800}.generated-config{margin-top:10px;border:1px solid var(--border);border-radius:9px;background:#090d11;padding:16px;color:#cbd5df;font:12px/1.55 "SFMono-Regular",Consolas,monospace;white-space:pre;overflow:auto}.migration-note{margin:18px 0 0;padding:13px 15px;border-left:3px solid var(--purple);background:rgba(169,139,234,.08);color:var(--muted);font-size:.9rem}@media(max-width:900px){.configurator{grid-template-columns:1fr}}@media(max-width:520px){.config-options{grid-template-columns:1fr}.config-panel,.config-result{padding:18px}}
     </style>
 </head>
 <body>
@@ -25,6 +26,7 @@
         <div class="nav-group">
             <nav class="links" aria-label="Main navigation">
                 <a href="#features" data-de="Features" data-en="Features">Features</a>
+                <a href="#configurator" data-de="Konfigurator" data-en="Configurator">Konfigurator</a>
                 <a href="#install" data-de="Installation" data-en="Install">Installation</a>
                 <a href="https://github.com/foxly-it/foxly-motd" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
             </nav>
@@ -51,24 +53,17 @@
 
 <span class="sysinfo-box"><span class="g">Systeminformationen</span>
 
-<span class="group-title">[ NETZWERK ]</span>
-IP-Adresse(n):       ens18: 10.0.0.20/24
-DNS-Server:          10.0.0.2, 1.1.1.1
+<span class="group-title">🌐 [ NETZWERK ]                 📊 [ RESSOURCEN ]              👤 [ SITZUNG ]</span>
+IP-Adresse(n): ens18: 10.0.0.20/24   Systemlast: 4,2%                  Systemlaufzeit: 12 Tage, 4 Stunden
+DNS-Server: 10.0.0.2                 Prozesse: 183                    Aktueller Nutzer: root
+            1.1.1.1                 RAM benutzt: 31,8%               Remote Host: 203.0.113.5
+                                    Swap benutzt: 0,0%
+                                    Freier Speicherplatz: 62%
 
-<span class="group-title">[ RESSOURCEN ]</span>
-Systemlast:          4,2%       Prozesse:       183
-RAM benutzt:        31,8%       Swap benutzt:   0,0%
-Freier Speicherplatz: 62%
-
-<span class="group-title">[ SITZUNG ]</span>
-Systemlaufzeit:      12 Tage, 4 Stunden
-Aktueller Nutzer:    root
-Remote Host:         203.0.113.5
-
-<span class="group-title">[ SYSTEMSTATUS ]</span>
-<span class="g">Systemd-Dienste: 0 fehlgeschlagen    Neustart nötig: Nein</span></span>
+<span class="group-title">⚙ [ SYSTEMSTATUS ]             📦 [ PAKET-UPDATES ]</span>
+<span class="g">Systemd-Dienste: 0 fehlgeschlagen</span>      7 Paket-Updates verfügbar,
+<span class="g">Neustart nötig: Nein</span>                   davon 2 Sicherheitsupdates.</span>
 <span class="p">🐳 Docker</span>  <span class="g">aktiv: 14</span> · gestoppt: 1 · fehlerhaft: 0 · Neustart: 0
-<span class="y">📦 7 Updates verfügbar, 2 Sicherheitsupdates</span>
 <span class="terminal-prompt"><span class="g">root</span>@<span class="p">homelab</span>:~#<span class="cursor" aria-hidden="true"></span></span></pre>
                 <pre data-terminal="en"><span class="rainbow">    __  __                     __          __
    / / / /___  ____ ___  ___  / /   ____ _/ /_
@@ -78,24 +73,17 @@ Remote Host:         203.0.113.5
 
 <span class="sysinfo-box"><span class="g">System information</span>
 
-<span class="group-title">[ NETWORK ]</span>
-IP address(es):       ens18: 10.0.0.20/24
-DNS servers:          10.0.0.2, 1.1.1.1
+<span class="group-title">🌐 [ NETWORK ]                  📊 [ RESOURCES ]               👤 [ SESSION ]</span>
+IP address(es): ens18: 10.0.0.20/24   System load: 4.2%                 Uptime: 12 days, 4 hours
+DNS servers: 10.0.0.2                 Processes: 183                   Current user: root
+             1.1.1.1                 Memory used: 31.8%               Remote Host: 203.0.113.5
+                                     Swap used: 0.0%
+                                     Free disk space: 62%
 
-<span class="group-title">[ RESOURCES ]</span>
-System load:          4.2%       Processes:      183
-Memory used:         31.8%       Swap used:      0.0%
-Free disk space:       62%
-
-<span class="group-title">[ SESSION ]</span>
-Uptime:               12 days, 4 hours
-Current user:         root
-Remote Host:          203.0.113.5
-
-<span class="group-title">[ SYSTEM HEALTH ]</span>
-<span class="g">Systemd services: 0 failed           Reboot required: No</span></span>
+<span class="group-title">⚙ [ SYSTEM HEALTH ]            📦 [ PACKAGE UPDATES ]</span>
+<span class="g">Systemd services: 0 failed</span>             7 package updates available,
+<span class="g">Reboot required: No</span>                    including 2 security updates.</span>
 <span class="p">🐳 Docker</span>  <span class="g">running: 14</span> · stopped: 1 · unhealthy: 0 · restarting: 0
-<span class="y">📦 7 updates available, 2 security updates</span>
 <span class="terminal-prompt"><span class="g">root</span>@<span class="p">homelab</span>:~#<span class="cursor" aria-hidden="true"></span></span></pre>
             </div>
         </div>
@@ -107,6 +95,41 @@ Remote Host:          203.0.113.5
                 <article class="card"><div class="icon">⚡</div><h3 data-de="Sofortige Ausgabe" data-en="Instant output">Sofortige Ausgabe</h3><p data-de="Keine ausgehenden Netzwerkaufrufe: DNS, systemd und Docker werden nur lokal und mit kurzem Zeitlimit abgefragt." data-en="No outbound network calls: DNS, systemd and Docker are queried locally with short timeouts only.">Keine ausgehenden Netzwerkaufrufe: DNS, systemd und Docker werden nur lokal und mit kurzem Zeitlimit abgefragt.</p></article>
                 <article class="card"><div class="icon">🔄</div><h3 data-de="Sichere Updates" data-en="Safe updates">Sichere Updates</h3><p data-de="Versionierte Releases, SHA-256-Prüfung, Backups und ein integrierter Rollback." data-en="Versioned releases, SHA-256 verification, backups and integrated rollback.">Versionierte Releases, SHA-256-Prüfung, Backups und ein integrierter Rollback.</p></article>
                 <article class="card"><div class="icon">🌍</div><h3 data-de="Deutsch oder Englisch" data-en="German or English">Deutsch oder Englisch</h3><p data-de="Automatisch über die System-Locale oder fest über die Konfiguration ausgewählt." data-en="Selected automatically from the system locale or explicitly in the configuration.">Automatisch über die System-Locale oder fest über die Konfiguration ausgewählt.</p></article>
+            </div>
+        </section>
+        <section id="configurator">
+            <div class="eyebrow" data-de="Dein Dashboard" data-en="Your dashboard">Dein Dashboard</div>
+            <h2 data-de="Zusammenstellen. Direkt ansehen." data-en="Configure it. See it instantly.">Zusammenstellen. Direkt ansehen.</h2>
+            <p class="section-lead" data-de="Wähle die gewünschten Module und Optionen. Die Vorschau und die passende Konfiguration aktualisieren sich sofort – vollständig lokal in deinem Browser." data-en="Choose the modules and options you want. The preview and matching configuration update instantly and entirely inside your browser.">Wähle die gewünschten Module und Optionen. Die Vorschau und die passende Konfiguration aktualisieren sich sofort – vollständig lokal in deinem Browser.</p>
+            <div class="configurator">
+                <form class="config-panel" id="motd-configurator">
+                    <h3 data-de="Module und Darstellung" data-en="Modules and appearance">Module und Darstellung</h3>
+                    <label class="config-field"><span data-de="MOTD-Sprache" data-en="MOTD language">MOTD-Sprache</span><select id="cfg-language"><option value="auto" data-de="Automatisch" data-en="Automatic">Automatisch</option><option value="de">Deutsch</option><option value="en">English</option></select></label>
+                    <div class="config-subtitle" data-de="Module im Rahmen" data-en="Modules inside the frame">Module im Rahmen</div>
+                    <div class="config-options">
+                        <label class="config-option"><input id="cfg-network" type="checkbox" checked><span data-de="🌐 Netzwerk" data-en="🌐 Network">🌐 Netzwerk</span></label>
+                        <label class="config-option"><input id="cfg-resources" type="checkbox" checked><span data-de="📊 Ressourcen" data-en="📊 Resources">📊 Ressourcen</span></label>
+                        <label class="config-option"><input id="cfg-session" type="checkbox" checked><span data-de="👤 Sitzung" data-en="👤 Session">👤 Sitzung</span></label>
+                        <label class="config-option"><input id="cfg-health" type="checkbox" checked><span data-de="⚙ Systemstatus" data-en="⚙ System health">⚙ Systemstatus</span></label>
+                        <label class="config-option"><input id="cfg-packages" type="checkbox" checked><span data-de="📦 Paket-Updates" data-en="📦 Package updates">📦 Paket-Updates</span></label>
+                    </div>
+                    <div class="config-subtitle" data-de="Details und Hinweise" data-en="Details and notices">Details und Hinweise</div>
+                    <div class="config-options">
+                        <label class="config-option"><input id="cfg-frame" type="checkbox" checked><span data-de="Außenrahmen" data-en="Outer frame">Außenrahmen</span></label>
+                        <label class="config-option"><input id="cfg-dns" type="checkbox" checked><span data-de="DNS-Server" data-en="DNS servers">DNS-Server</span></label>
+                        <label class="config-option"><input id="cfg-package-names" type="checkbox"><span data-de="Paketnamen" data-en="Package names">Paketnamen</span></label>
+                        <label class="config-option"><input id="cfg-docker" type="checkbox" checked><span>🐳 Docker</span></label>
+                        <label class="config-option"><input id="cfg-update-notice" type="checkbox" checked><span data-de="MOTD-Updatehinweis" data-en="MOTD update notice">MOTD-Updatehinweis</span></label>
+                    </div>
+                    <label class="config-field" style="margin-top:18px"><span data-de="Maximal angezeigte Paketnamen" data-en="Maximum package names shown">Maximal angezeigte Paketnamen</span><input id="cfg-package-limit" type="number" min="1" max="20" value="5" disabled></label>
+                </form>
+                <div class="config-result">
+                    <h3 data-de="Live-Vorschau" data-en="Live preview">Live-Vorschau</h3>
+                    <div class="assistant-terminal" aria-live="polite"><pre id="assistant-preview"></pre></div>
+                    <div class="generated-head"><h3 data-de="Erzeugte Konfiguration" data-en="Generated configuration">Erzeugte Konfiguration</h3><button class="config-copy" type="button" onclick="copyAssistantConfig()" data-de="Kopieren" data-en="Copy">Kopieren</button></div>
+                    <pre class="generated-config" id="assistant-config"></pre>
+                    <p class="migration-note" data-de="Upgrade-sicher: Vorhandene Werte in /etc/default/foxly-motd bleiben erhalten. Neue Optionen werden bei einem Update mit kompatiblen Standardwerten ergänzt." data-en="Upgrade-safe: Existing values in /etc/default/foxly-motd are retained. Updates append new options with compatible defaults.">Upgrade-sicher: Vorhandene Werte in /etc/default/foxly-motd bleiben erhalten. Neue Optionen werden bei einem Update mit kompatiblen Standardwerten ergänzt.</p>
+                </div>
             </div>
         </section>
         <section id="install"><div class="install">
@@ -142,6 +165,7 @@ Remote Host:          203.0.113.5
         document.title=titles[language];
         document.querySelector('meta[name="description"]').content=descriptions[language];
         if(persist)localStorage.setItem("foxly-motd-language",language);
+        renderAssistant();
     }
     function copyCommand(){
         const button=document.querySelector(".copy");
@@ -150,6 +174,81 @@ Remote Host:          203.0.113.5
             setTimeout(()=>button.textContent=currentLanguage==="de"?"Kopieren":"Copy",1600);
         });
     }
+    const configCheckboxes={
+        network:"cfg-network",resources:"cfg-resources",session:"cfg-session",health:"cfg-health",
+        packages:"cfg-packages",frame:"cfg-frame",dns:"cfg-dns",packageNames:"cfg-package-names",
+        docker:"cfg-docker",updateNotice:"cfg-update-notice"
+    };
+    const checked=key=>document.getElementById(configCheckboxes[key]).checked;
+    const yesNo=value=>value?"yes":"no";
+    const configLanguage=()=>document.getElementById("cfg-language").value;
+    function syncAssistantControls(){
+        document.getElementById("cfg-dns").disabled=!checked("network");
+        document.getElementById("cfg-package-names").disabled=!checked("packages");
+        document.getElementById("cfg-package-limit").disabled=!checked("packages")||!checked("packageNames");
+    }
+    function assistantCards(language){
+        const de=language==="de",cards=[];
+        if(checked("network"))cards.push({title:de?"🌐 [ NETZWERK ]":"🌐 [ NETWORK ]",lines:[de?"IP-Adresse(n): 10.0.0.20/24":"IP address(es): 10.0.0.20/24",...(checked("dns")?[de?"DNS-Server: 10.0.0.2, 1.1.1.1":"DNS servers: 10.0.0.2, 1.1.1.1"]:[])]});
+        if(checked("resources"))cards.push({title:de?"📊 [ RESSOURCEN ]":"📊 [ RESOURCES ]",lines:[de?"Systemlast: 4,2%":"System load: 4.2%",de?"Prozesse: 183":"Processes: 183",de?"RAM benutzt: 31,8%":"Memory used: 31.8%",de?"Swap benutzt: 0,0%":"Swap used: 0.0%",de?"Freier Speicherplatz: 62%":"Free disk space: 62%"]});
+        if(checked("session"))cards.push({title:de?"👤 [ SITZUNG ]":"👤 [ SESSION ]",lines:[de?"Systemlaufzeit: 12 Tage":"Uptime: 12 days",de?"Aktueller Nutzer: root":"Current user: root","Remote Host: 203.0.113.5"]});
+        if(checked("health"))cards.push({title:de?"⚙ [ SYSTEMSTATUS ]":"⚙ [ SYSTEM HEALTH ]",lines:[de?"Systemd-Dienste: 0 fehlgeschlagen":"Systemd services: 0 failed",de?"Neustart nötig: Nein":"Reboot required: No"]});
+        if(checked("packages")){
+            const lines=[de?"7 Paket-Updates verfügbar,":"7 package updates available,",de?"davon 2 Sicherheitsupdates.":"including 2 security updates."];
+            if(checked("packageNames")){
+                const names=["openssl","curl","linux-image","systemd","sudo","git","ca-certificates"];
+                const limit=Math.max(1,Math.min(20,Number(document.getElementById("cfg-package-limit").value)||5));
+                lines.push(names.slice(0,limit).join(" · "));
+                if(names.length>limit)lines.push(de?`und ${names.length-limit} weitere`:`and ${names.length-limit} more`);
+            }
+            cards.push({title:de?"📦 [ PAKET-UPDATES ]":"📦 [ PACKAGE UPDATES ]",lines});
+        }
+        return cards;
+    }
+    function renderCardGrid(cards){
+        const width=34,output=[];
+        for(let start=0;start<cards.length;start+=3){
+            if(start)output.push("");
+            const row=cards.slice(start,start+3).map(card=>[card.title,...card.lines]);
+            const height=Math.max(...row.map(lines=>lines.length));
+            for(let line=0;line<height;line++)output.push(row.map(lines=>(lines[line]||"").padEnd(width)).join("   ").trimEnd());
+        }
+        return output;
+    }
+    function renderAssistant(){
+        const preview=document.getElementById("assistant-preview");
+        if(!preview)return;
+        syncAssistantControls();
+        const selected=configLanguage(),language=selected==="auto"?currentLanguage:selected,de=language==="de";
+        const dashboard=[de?"Systeminformationen am 17.07.2026 12:00:00":"System information at 17.07.2026 12:00:00","",...renderCardGrid(assistantCards(language))];
+        let output;
+        if(checked("frame")){
+            const width=Math.max(...dashboard.map(line=>line.length));
+            output=[`╭${"─".repeat(width+2)}╮`,...dashboard.map(line=>`│ ${line.padEnd(width)} │`),`╰${"─".repeat(width+2)}╯`];
+        }else output=dashboard;
+        if(checked("docker"))output.push("",de?"🐳 Docker  aktiv: 14 · gestoppt: 1":"🐳 Docker  running: 14 · stopped: 1");
+        if(checked("updateNotice"))output.push("",de?"⬆ Foxly MOTD Update verfügbar":"⬆ Foxly MOTD update available");
+        preview.textContent=output.join("\n");
+        const limit=Math.max(1,Math.min(20,Number(document.getElementById("cfg-package-limit").value)||5));
+        document.getElementById("assistant-config").textContent=[
+            "# Foxly MOTD configuration",`MOTD_LANGUAGE=${selected}`,"COLOR_MODE=always","USE_LOLCAT=yes","FIGLET_FONT=slant",
+            `SHOW_NETWORK=${yesNo(checked("network"))}`,`SHOW_NETWORK_DETAILS=${yesNo(checked("dns"))}`,
+            `SHOW_RESOURCES=${yesNo(checked("resources"))}`,`SHOW_SESSION=${yesNo(checked("session"))}`,
+            `SHOW_SYSTEM_HEALTH=${yesNo(checked("health"))}`,`SHOW_DOCKER=${yesNo(checked("docker"))}`,
+            `SHOW_PACKAGE_UPDATES=${yesNo(checked("packages"))}`,`SHOW_PACKAGE_NAMES=${yesNo(checked("packageNames"))}`,
+            `PACKAGE_NAME_LIMIT=${limit}`,`SHOW_UPDATE_NOTICE=${yesNo(checked("updateNotice"))}`,
+            `SHOW_FRAME=${yesNo(checked("frame"))}`,"UPDATE_MODE=notify"
+        ].join("\n");
+    }
+    function copyAssistantConfig(){
+        const button=document.querySelector(".config-copy");
+        navigator.clipboard.writeText(document.getElementById("assistant-config").textContent).then(()=>{
+            button.textContent=currentLanguage==="de"?"Kopiert ✓":"Copied ✓";
+            setTimeout(()=>button.textContent=currentLanguage==="de"?"Kopieren":"Copy",1600);
+        });
+    }
+    document.getElementById("motd-configurator").addEventListener("input",renderAssistant);
+    document.getElementById("motd-configurator").addEventListener("change",renderAssistant);
     document.getElementById("copyright-year").textContent=new Date().getFullYear();
     const preferred=localStorage.getItem("foxly-motd-language")||(navigator.language.toLowerCase().startsWith("de")?"de":"en");
     setLanguage(preferred,false);
