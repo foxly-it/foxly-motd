@@ -29,8 +29,9 @@ check(html.includes("🌐 [ NETZWERK ]") && html.includes("📊 [ RESSOURCEN ]")
 check(html.includes("[ NETWORK ]") && html.includes("[ RESOURCES ]") && html.includes("[ SESSION ]") && html.includes("[ SYSTEM HEALTH ]"), "Grouped English dashboard preview missing");
 check(!html.includes("⚙ Systemd"), "Fragile system-health glyph remains in preview");
 check((html.match(/class="sysinfo-box"/g) || []).length === 2, "Framed system information preview missing");
-check(html.includes("width:min(1200px") && html.includes("minmax(320px,.7fr) minmax(0,1.3fr)"), "Wide terminal layout missing");
-check(html.includes("@media(max-width:1020px)"), "Wide terminal breakpoint missing");
+check(html.includes("width:min(1400px") && html.includes("minmax(320px,.7fr) minmax(0,1.3fr)"), "Wide terminal layout missing");
+check(html.includes(".hero .terminal pre{font-size:clamp(9px,.85vw,13px)}"), "Responsive terminal sizing missing");
+check(html.includes("@media(max-width:1100px)"), "Wide terminal breakpoint missing");
 check((html.match(/class="terminal-prompt"/g) || []).length === 2, "Terminal prompts missing");
 check((html.match(/class="cursor" aria-hidden="true"/g) || []).length === 2, "Terminal cursors missing");
 check(html.includes("@keyframes cursor-blink") && html.includes("prefers-reduced-motion:reduce"), "Accessible cursor animation missing");
@@ -41,6 +42,10 @@ check(html.includes('id="assistant-preview"') && html.includes('aria-live="polit
 check(html.includes('id="assistant-config"') && html.includes("copyAssistantConfig"), "Generated configuration output missing");
 check(html.includes('id="cfg-frame"') && html.includes('id="cfg-package-names"') && html.includes('id="cfg-package-limit"'), "Appearance and package controls missing");
 check(html.includes("SHOW_NETWORK=") && html.includes("SHOW_FRAME=") && html.includes("PACKAGE_NAME_LIMIT="), "Modular generated settings missing");
+const widthHelpers = html.match(/function displayWidth[\s\S]*?(?=    function renderCardGrid)/);
+check(widthHelpers, "Display-width helpers missing");
+const widthChecks = new Function(`${widthHelpers[0]}; return [displayWidth("🌐 A"), displayWidth("⚙ A"), padDisplay("🌐", 4)];`)();
+check(widthChecks[0] === 4 && widthChecks[1] === 3 && widthChecks[2] === "🌐  ", "Emoji-aware frame padding is incorrect");
 check(html.includes("Existing values in /etc/default/foxly-motd are retained"), "Configuration migration notice missing");
 inlineScripts.forEach(script => new Function(script));
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
