@@ -199,7 +199,7 @@ cache_value() {
 
 cpus=$(nproc 2> /dev/null || printf 1)
 load_raw=$(awk '{print $1}' /proc/loadavg 2> /dev/null || printf 0)
-load_pct=$(awk -v load="$load_raw" -v cpus="$cpus" 'BEGIN {if (cpus < 1) cpus=1; printf "%.1f%%", load*100/cpus}')
+load_pct=$(awk -v load_value="$load_raw" -v cpus="$cpus" 'BEGIN {if (cpus < 1) cpus=1; printf "%.1f%%", load_value*100/cpus}')
 memory_usage=$(memory_usage)
 memory_usage=${memory_usage:-N/A}
 swap_usage=$(swap_usage)

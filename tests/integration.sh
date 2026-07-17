@@ -146,8 +146,8 @@ assert_matches "$TEST_DIR/layout" '^╰─+╯$'
 assert_matches "$TEST_DIR/layout" '^│ Systeminformationen am .+ +│$'
 blank_box_rows=$(grep -Ec '^│ +│$' "$TEST_DIR/layout")
 ((blank_box_rows >= 1)) || fail 'Expected a separator between dashboard rows'
-resources_column=$(awk '/RESSOURCEN/ {sub(/^│ /, ""); print index($0, "📊")}' "$TEST_DIR/layout")
-session_column=$(awk '/SITZUNG/ {sub(/^│ /, ""); print index($0, "👤")}' "$TEST_DIR/layout")
+resources_column=$(LC_ALL=C awk '/RESSOURCEN/ {sub(/^│ /, ""); print index($0, "📊")}' "$TEST_DIR/layout")
+session_column=$(LC_ALL=C awk '/SITZUNG/ {sub(/^│ /, ""); print index($0, "👤")}' "$TEST_DIR/layout")
 [[ "$resources_column" == 41 ]] || fail "Resources starts in inner byte column $resources_column instead of 41"
 [[ "$session_column" == 81 ]] || fail "Session starts in inner byte column $session_column instead of 81"
 network_line=$(grep -nF '[ NETZWERK ]' "$TEST_DIR/layout" | cut -d: -f1)
