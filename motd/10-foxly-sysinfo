@@ -5,6 +5,7 @@ CONFIG_FILE="${FOXLY_MOTD_CONFIG_FILE:-/etc/default/foxly-motd}"
 CACHE_FILE="${FOXLY_MOTD_CACHE_FILE:-/var/cache/foxly-motd/packages}"
 STATE_DIR="${FOXLY_MOTD_STATE_DIR:-/var/lib/foxly-motd}"
 MEMINFO_FILE="${FOXLY_MOTD_MEMINFO_FILE:-/proc/meminfo}"
+UPTIME_FILE="${FOXLY_MOTD_UPTIME_FILE:-/proc/uptime}"
 RESOLV_CONF_FILE="${FOXLY_MOTD_RESOLV_CONF_FILE:-/etc/resolv.conf}"
 REBOOT_REQUIRED_FILE="${FOXLY_MOTD_REBOOT_REQUIRED_FILE:-/var/run/reboot-required}"
 MOTD_LANGUAGE=auto
@@ -225,7 +226,7 @@ swap_usage=$(swap_usage)
 swap_usage=${swap_usage:-N/A}
 disk_free=$(df -P / 2> /dev/null | awk 'NR==2 {printf "%.0f%%", $4*100/$2}')
 processes=$(ps -e --no-headers 2> /dev/null | wc -l | tr -d ' ')
-uptime_seconds=$(awk '{print int($1)}' /proc/uptime 2> /dev/null || printf 0)
+uptime_seconds=$(awk '{print int($1)}' "$UPTIME_FILE" 2> /dev/null || printf 0)
 
 if [[ "$LANG_CODE" == de ]]; then
     heading="Systeminformationen am"
@@ -391,7 +392,9 @@ print_compact_detail() {
     ((tab_width < label_width)) && tab_width=$label_width
     display_width "$value"
     value_width=$DISPLAY_WIDTH
-    if ((tab_width + 1 + value_width <= CELL_WIDTH)); then
+    # A tiny overflow is preferable to moving an otherwise compact value onto
+    # two extra rows. The three-cell grid gap safely absorbs this tolerance.
+    if ((tab_width + 1 + value_width <= CELL_WIDTH + 2)); then
         padding=$((tab_width - label_width))
         printf '%s%s%s%*s %s%s%s\n' \
             "$COLOR" "$label" "$RESET" "$padding" '' "$value_color" "$value" "$RESET"

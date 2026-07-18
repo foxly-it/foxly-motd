@@ -123,6 +123,7 @@ SwapTotal:        200 kB
 SwapFree:         150 kB
 EOF
 touch "$TEST_DIR/reboot-required"
+printf '432720.00 0.00\n' > "$TEST_DIR/uptime"
 mkdir -p "$ROOT/var/cache/foxly-motd"
 cat > "$ROOT/var/cache/foxly-motd/packages" << 'EOF'
 generated=2026-07-17 12:00:00
@@ -134,6 +135,7 @@ sed -i.bak 's/^MOTD_LANGUAGE=.*/MOTD_LANGUAGE=de/; s/^SHOW_DOCKER=.*/SHOW_DOCKER
 rm -f "$ROOT/etc/default/foxly-motd.bak"
 PATH="$LAYOUT_BIN:$PATH" \
     FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_UPTIME_FILE="$TEST_DIR/uptime" \
     FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
     FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
     FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
@@ -148,6 +150,7 @@ assert_contains "$TEST_DIR/layout" '1.1.1.1'
 assert_matches "$TEST_DIR/layout" 'RAM benutzt: +60,0%'
 assert_matches "$TEST_DIR/layout" 'Swap benutzt: +25,0%'
 assert_matches "$TEST_DIR/layout" 'Remote Host: +203.0.113.5'
+assert_matches "$TEST_DIR/layout" 'Systemlaufzeit: +5 Tage, 12 Minuten'
 assert_contains "$TEST_DIR/layout" '🌐 [ NETZWERK ]'
 assert_contains "$TEST_DIR/layout" '📊 [ RESSOURCEN ]'
 assert_contains "$TEST_DIR/layout" '👤 [ SITZUNG ]'
