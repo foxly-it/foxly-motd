@@ -281,6 +281,15 @@ localize_number() {
 }
 
 CELL_WIDTH=35
+terminal_columns=${FOXLY_MOTD_COLUMNS:-${COLUMNS:-}}
+if [[ ! "$terminal_columns" =~ ^[0-9]+$ ]] && [[ -t 1 ]] && command -v tput > /dev/null 2>&1; then
+    terminal_columns=$(tput cols 2> /dev/null || true)
+fi
+if [[ "$terminal_columns" =~ ^[0-9]+$ ]]; then
+    adaptive_cell_width=$(((terminal_columns - 10) / 3))
+    ((adaptive_cell_width > 50)) && adaptive_cell_width=50
+    ((adaptive_cell_width > CELL_WIDTH)) && CELL_WIDTH=$adaptive_cell_width
+fi
 
 display_width() {
     local plain=$1 icon
@@ -326,17 +335,39 @@ wrap_text() {
     [[ -z "$line" ]] || printf '%s\n' "$line"
 }
 
+max_display_width() {
+    local value max=0
+    for value in "$@"; do
+        display_width "$value"
+        ((DISPLAY_WIDTH > max)) && max=$DISPLAY_WIDTH
+    done
+    printf '%s\n' "$max"
+}
+
+print_aligned_value() {
+    local value=$1 tab_width=$2 value_color=${3:-} line available
+    available=$((CELL_WIDTH - tab_width - 1))
+    ((available < 8)) && available=8
+    wrap_text "$available" "$value" | while IFS= read -r line; do
+        printf '%*s%s%s%s\n' "$((tab_width + 1))" '' "$value_color" "$line" "$RESET"
+    done
+}
+
 print_compact_detail() {
-    local label=$1 value=$2 value_color=${3:-} line
-    line="$label $value"
-    display_width "$line"
-    if ((DISPLAY_WIDTH <= CELL_WIDTH)); then
-        printf '%s%s%s %s%s%s\n' "$COLOR" "$label" "$RESET" "$value_color" "$value" "$RESET"
+    local label=$1 value=$2 value_color=${3:-} tab_width=${4:-} label_width value_width padding
+    display_width "$label"
+    label_width=$DISPLAY_WIDTH
+    [[ "$tab_width" =~ ^[0-9]+$ ]] || tab_width=$label_width
+    ((tab_width < label_width)) && tab_width=$label_width
+    display_width "$value"
+    value_width=$DISPLAY_WIDTH
+    if ((tab_width + 1 + value_width <= CELL_WIDTH)); then
+        padding=$((tab_width - label_width))
+        printf '%s%s%s%*s %s%s%s\n' \
+            "$COLOR" "$label" "$RESET" "$padding" '' "$value_color" "$value" "$RESET"
     else
         printf '%s%s%s\n' "$COLOR" "$label" "$RESET"
-        wrap_text "$((CELL_WIDTH - 2))" "$value" | while IFS= read -r line; do
-            printf '  %s%s%s\n' "$value_color" "$line" "$RESET"
-        done
+        print_aligned_value "$value" "$tab_width" "$value_color"
     fi
 }
 
@@ -423,41 +454,34 @@ dashboard_output=$(
 
     ip_lines=()
     while IFS= read -r ip_line; do
-        if ((${#ip_line} > 28)) && [[ "$ip_line" == *': '* ]]; then
-            ip_lines+=("${ip_line%%: *}:")
-            ip_line="  ${ip_line#*: }"
-        fi
-        while ((${#ip_line} > 28)); do
-            ip_lines+=("${ip_line:0:28}")
-            ip_line=${ip_line:28}
-        done
         ip_lines+=("$ip_line")
     done < <(get_ipv4s)
 
     dns_lines=()
     if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
         while IFS= read -r dns_line; do
-            while ((${#dns_line} > 28)); do
-                dns_lines+=("${dns_line:0:28}")
-                dns_line=${dns_line:28}
-            done
             dns_lines+=("$dns_line")
         done < <(get_dns_servers)
     fi
 
     dashboard_cards=()
+    network_tab=$(max_display_width "$ip_label" "$dns_label")
+    resources_tab=$(max_display_width "$load_label" "$processes_label" "$memory_label" "$swap_label" "$disk_label")
+    session_tab=$(max_display_width "$uptime_label" "$user_label" 'Remote Host:')
+    health_tab=$(max_display_width "$failed_services_label" "$reboot_label")
+    docker_tab=$(max_display_width "${docker_active}:" "${docker_stopped}:" "${docker_unhealthy}:" "${docker_restarting}:")
 
     if [[ "$SHOW_NETWORK" == yes ]]; then
         network_content=$(
             print_group_heading "$network_group"
-            print_compact_detail "$ip_label" "${ip_lines[0]:-N/A}"
+            print_compact_detail "$ip_label" "${ip_lines[0]:-N/A}" '' "$network_tab"
             for ((i = 1; i < ${#ip_lines[@]}; i++)); do
-                printf '%s\n' "${ip_lines[$i]}"
+                print_aligned_value "${ip_lines[$i]}" "$network_tab"
             done
             if [[ "$SHOW_NETWORK_DETAILS" == yes ]]; then
-                print_compact_detail "$dns_label" "${dns_lines[0]:-N/A}"
+                print_compact_detail "$dns_label" "${dns_lines[0]:-N/A}" '' "$network_tab"
                 for ((i = 1; i < ${#dns_lines[@]}; i++)); do
-                    printf '%s\n' "${dns_lines[$i]}"
+                    print_aligned_value "${dns_lines[$i]}" "$network_tab"
                 done
             fi
         )
@@ -467,11 +491,11 @@ dashboard_output=$(
     if [[ "$SHOW_RESOURCES" == yes ]]; then
         resources_content=$(
             print_group_heading "$resources_group"
-            print_compact_detail "$load_label" "$(localize_number "$load_pct")"
-            print_compact_detail "$processes_label" "$processes"
-            print_compact_detail "$memory_label" "$(localize_number "$memory_usage")"
-            print_compact_detail "$swap_label" "$(localize_number "$swap_usage")"
-            print_compact_detail "$disk_label" "$disk_free"
+            print_compact_detail "$load_label" "$(localize_number "$load_pct")" '' "$resources_tab"
+            print_compact_detail "$processes_label" "$processes" '' "$resources_tab"
+            print_compact_detail "$memory_label" "$(localize_number "$memory_usage")" '' "$resources_tab"
+            print_compact_detail "$swap_label" "$(localize_number "$swap_usage")" '' "$resources_tab"
+            print_compact_detail "$disk_label" "$disk_free" '' "$resources_tab"
         )
         dashboard_cards+=("$resources_content")
     fi
@@ -479,9 +503,9 @@ dashboard_output=$(
     if [[ "$SHOW_SESSION" == yes ]]; then
         session_content=$(
             print_group_heading "$session_group"
-            print_compact_detail "$uptime_label" "$(format_uptime "$uptime_seconds")"
-            print_compact_detail "$user_label" "$(id -un)"
-            print_compact_detail 'Remote Host:' "$(remote_host)"
+            print_compact_detail "$uptime_label" "$(format_uptime "$uptime_seconds")" '' "$session_tab"
+            print_compact_detail "$user_label" "$(id -un)" '' "$session_tab"
+            print_compact_detail 'Remote Host:' "$(remote_host)" '' "$session_tab"
         )
         dashboard_cards+=("$session_content")
     fi
@@ -500,8 +524,8 @@ dashboard_output=$(
         fi
         health_content=$(
             print_group_heading "$health_group"
-            print_compact_detail "$failed_services_label" "$failed_services $failed_services_suffix" "$failed_color"
-            print_compact_detail "$reboot_label" "$reboot_required" "$reboot_color"
+            print_compact_detail "$failed_services_label" "$failed_services $failed_services_suffix" "$failed_color" "$health_tab"
+            print_compact_detail "$reboot_label" "$reboot_required" "$reboot_color" "$health_tab"
         )
         dashboard_cards+=("$health_content")
     fi
@@ -549,10 +573,10 @@ dashboard_output=$(
                 if ((running + stopped + unhealthy + restarting == 0)); then
                     printf '%s\n' "$docker_none"
                 else
-                    ((running > 0)) && print_compact_detail "${docker_active}:" "$running" "$GREEN"
-                    ((stopped > 0)) && print_compact_detail "${docker_stopped}:" "$stopped" "$YELLOW"
-                    ((unhealthy > 0)) && print_compact_detail "${docker_unhealthy}:" "$unhealthy" "$YELLOW"
-                    ((restarting > 0)) && print_compact_detail "${docker_restarting}:" "$restarting" "$YELLOW"
+                    ((running > 0)) && print_compact_detail "${docker_active}:" "$running" "$GREEN" "$docker_tab"
+                    ((stopped > 0)) && print_compact_detail "${docker_stopped}:" "$stopped" "$YELLOW" "$docker_tab"
+                    ((unhealthy > 0)) && print_compact_detail "${docker_unhealthy}:" "$unhealthy" "$YELLOW" "$docker_tab"
+                    ((restarting > 0)) && print_compact_detail "${docker_restarting}:" "$restarting" "$YELLOW" "$docker_tab"
                 fi
             fi
         )
