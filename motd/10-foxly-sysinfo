@@ -40,6 +40,25 @@ resolve_language() {
 
 LANG_CODE=$(resolve_language)
 
+ensure_utf8_ctype() {
+    local candidate charmap
+    charmap=$(locale charmap 2> /dev/null || true)
+    [[ "$charmap" == "UTF-8" || "$charmap" == "UTF8" ]] && return 0
+    for candidate in C.UTF-8 C.utf8 en_US.UTF-8; do
+        charmap=$(LC_ALL="$candidate" locale charmap 2> /dev/null || true)
+        if [[ "$charmap" == "UTF-8" || "$charmap" == "UTF8" ]]; then
+            LC_ALL=$candidate
+            LANG=$candidate
+            export LC_ALL LANG
+            return 0
+        fi
+    done
+}
+
+# PAM commonly builds /run/motd.dynamic with LC_ALL=C. Bash would then count
+# UTF-8 bytes instead of visible characters and shorten framed emoji rows.
+ensure_utf8_ctype
+
 for flag in SHOW_NETWORK SHOW_NETWORK_DETAILS SHOW_RESOURCES SHOW_SESSION SHOW_SYSTEM_HEALTH \
     SHOW_DOCKER SHOW_PACKAGE_UPDATES SHOW_PACKAGE_NAMES SHOW_UPDATE_NOTICE SHOW_FRAME; do
     [[ "${!flag}" == yes || "${!flag}" == no ]] || printf -v "$flag" no

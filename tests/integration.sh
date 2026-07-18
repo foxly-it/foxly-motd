@@ -14,6 +14,22 @@ assert_file() { [[ -f "$1" ]] || fail "Missing file: $1"; }
 assert_contains() { grep -Fq "$2" "$1" || fail "$1 does not contain: $2"; }
 assert_matches() { grep -Eq "$2" "$1" || fail "$1 does not match: $2"; }
 assert_not_contains() { grep -Fq "$2" "$1" && fail "$1 unexpectedly contains: $2" || return 0; }
+assert_equal_box_widths() {
+    LC_ALL=C awk '
+        /^│/ {
+            line = $0
+            gsub(/🌐|📊|👤|📦|🐳|⚙️/, "XX", line)
+            gsub(/ä|ö|ü|Ä|Ö|Ü|ß/, "X", line)
+            gsub(/│/, "|", line)
+            if (!expected) expected = length(line)
+            if (length(line) != expected) {
+                printf "Expected display width %d, got %d: %s\n", expected, length(line), $0 > "/dev/stderr"
+                exit 1
+            }
+        }
+        END { if (!expected) exit 1 }
+    ' "$1" || fail "Box rows do not have equal terminal display widths: $1"
+}
 
 printf 'Test: clean installation\n'
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --language de --no-refresh --no-timers
@@ -149,20 +165,7 @@ assert_matches "$TEST_DIR/layout" 'Neustart: +1'
 assert_matches "$TEST_DIR/layout" '^╭─+╮$'
 assert_matches "$TEST_DIR/layout" '^╰─+╯$'
 assert_matches "$TEST_DIR/layout" '^│ Systeminformationen am .+ +│$'
-LC_ALL=C awk '
-    /^│/ {
-        line = $0
-        gsub(/🌐|📊|👤|📦|🐳|⚙️/, "XX", line)
-        gsub(/ä|ö|ü|Ä|Ö|Ü|ß/, "X", line)
-        gsub(/│/, "|", line)
-        if (!expected) expected = length(line)
-        if (length(line) != expected) {
-            printf "Expected display width %d, got %d: %s\n", expected, length(line), $0 > "/dev/stderr"
-            exit 1
-        }
-    }
-    END { if (!expected) exit 1 }
-' "$TEST_DIR/layout" || fail 'Box rows do not have equal terminal display widths'
+assert_equal_box_widths "$TEST_DIR/layout"
 blank_box_rows=$(grep -Ec '^│ +│$' "$TEST_DIR/layout")
 ((blank_box_rows >= 1)) || fail 'Expected a separator between dashboard rows'
 resources_column=$(LC_ALL=C awk '/RESSOURCEN/ {sub(/^│ /, ""); print index($0, "📊")}' "$TEST_DIR/layout")
@@ -187,6 +190,20 @@ if ((current_user_line > uptime_line + 1)); then
     sed -n "$((uptime_line + 1)),$((current_user_line - 1))p" "$TEST_DIR/layout" |
         grep -Eq '^│ +│$' && fail 'Unexpected blank row between session details'
 fi
+
+printf 'Test: PAM login output uses UTF-8 display widths under C locale\n'
+LC_ALL=C \
+    PATH="$LAYOUT_BIN:$PATH" \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    SSH_CONNECTION='203.0.113.5 12345 192.0.2.10 22' \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-pam"
+assert_contains "$TEST_DIR/layout-pam" '🐳 Docker-Container'
+assert_contains "$TEST_DIR/layout-pam" '3 Paket-Updates verfügbar,'
+assert_equal_box_widths "$TEST_DIR/layout-pam"
 
 printf 'Test: adaptive card widths and aligned value tabs\n'
 FOXLY_MOTD_COLUMNS=180 \
