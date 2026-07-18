@@ -232,7 +232,7 @@ if [[ "$LANG_CODE" == de ]]; then
     network_group="🌐 [ NETZWERK ]"
     resources_group="📊 [ RESSOURCEN ]"
     session_group="👤 [ SITZUNG ]"
-    health_group="⚙ [ SYSTEMSTATUS ]"
+    health_group="⚙️ [ SYSTEMSTATUS ]"
     packages_group="📦 [ PAKET-UPDATES ]"
     packages_available="Paket-Updates verfügbar,"
     packages_security="davon %s Sicherheitsupdates."
@@ -263,7 +263,7 @@ else
     network_group="🌐 [ NETWORK ]"
     resources_group="📊 [ RESOURCES ]"
     session_group="👤 [ SESSION ]"
-    health_group="⚙ [ SYSTEM HEALTH ]"
+    health_group="⚙️ [ SYSTEM HEALTH ]"
     packages_group="📦 [ PACKAGE UPDATES ]"
     packages_available="package updates available,"
     packages_security="including %s security updates."
@@ -379,6 +379,11 @@ print_grid_row() {
             print_padded "${third_lines[row]:-}" "$CELL_WIDTH"
         fi
         printf '\n'
+        # Terminal emulators do not support fractional line gaps. Blank rows
+        # mirror the website's spacing below headings and after the first detail.
+        if ((row < 2 && row + 1 < max)); then
+            printf '\n'
+        fi
     done
 }
 
