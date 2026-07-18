@@ -25,10 +25,11 @@ check((html.match(/class="rainbow"/g) || []).length === 2, "Rainbow HomeLab prev
 check(html.includes("/ /_/ / __ \\/ __ `__ \\/ _ \\/ /"), "HomeLab ASCII art missing");
 check(html.includes("10.0.0.20/24") && html.includes("DNS-Server:"), "Network details missing from preview");
 check(html.includes("Systemd-Dienste:") && html.includes("fehlerhaft: 0"), "Health details missing from preview");
-check(html.includes("🌐 [ NETZWERK ]") && html.includes("📊 [ RESSOURCEN ]") && html.includes("👤 [ SITZUNG ]") && html.includes("⚙ [ SYSTEMSTATUS ]") && html.includes("📦 [ PAKET-UPDATES ]"), "Three-column German dashboard preview missing");
+check(html.includes("[ NETZWERK ]") && html.includes("[ RESSOURCEN ]") && html.includes("[ SITZUNG ]") && html.includes("[ SYSTEMSTATUS ]") && html.includes("[ PAKET-UPDATES ]"), "Three-column German dashboard preview missing");
 check(html.includes("[ NETWORK ]") && html.includes("[ RESOURCES ]") && html.includes("[ SESSION ]") && html.includes("[ SYSTEM HEALTH ]"), "Grouped English dashboard preview missing");
 check((html.match(/class="terminal-dashboard"/g) || []).length === 2 && (html.match(/class="terminal-dashboard secondary"/g) || []).length === 2, "Grid-based terminal dashboard missing");
 check((html.match(/class="terminal-card"/g) || []).length === 10, "Terminal dashboard cards missing");
+check((html.match(/class="terminal-icon"/g) || []).length === 10 && html.includes("row-gap:.16em") && html.includes("margin-bottom:.32em"), "Terminal icon sizing or vertical rhythm missing");
 check(!html.includes("⚙ Systemd"), "Fragile system-health glyph remains in preview");
 check((html.match(/class="sysinfo-box"/g) || []).length === 2, "Framed system information preview missing");
 check(html.includes("width:min(1400px") && html.includes("minmax(320px,.7fr) minmax(0,1.3fr)"), "Wide terminal layout missing");
