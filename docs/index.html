@@ -18,8 +18,10 @@
         @keyframes terminal-settle{from{transform:perspective(900px) rotateZ(1deg) rotateY(-8deg) translateX(16px)}to{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0)}}@media(min-width:1021px) and (hover:hover) and (pointer:fine){.terminal{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0);transform-style:preserve-3d;transition:transform 280ms ease-in-out,box-shadow 280ms ease-in-out;animation:terminal-settle 700ms ease-out;will-change:transform}.terminal:hover{transform:perspective(900px) rotateZ(1deg) rotateY(-8deg) translateX(16px);box-shadow:0 30px 85px rgba(0,0,0,.48)}}@media(prefers-reduced-motion:reduce) and (min-width:1021px){.terminal{animation:none;transition:none}.terminal:hover{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0)}}
         .configurator{display:grid;grid-template-columns:minmax(280px,.6fr) minmax(0,1.4fr);gap:22px;align-items:start}.config-panel,.config-result{border:1px solid var(--border);border-radius:16px;background:var(--panel);padding:25px}.config-panel h3,.config-result h3{margin:0 0 16px}.config-field{display:grid;gap:7px;margin-bottom:20px;color:var(--muted);font-size:.9rem}.config-field select,.config-field input[type="number"]{width:100%;border:1px solid var(--border);border-radius:8px;background:#0d141b;color:var(--text);padding:10px 12px;font:inherit}.config-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}.config-option{display:flex;align-items:center;gap:9px;min-height:44px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--soft);cursor:pointer;font-size:.9rem}.config-option:has(input:disabled){opacity:.48;cursor:not-allowed}.config-option input{accent-color:var(--green)}.config-subtitle{margin:22px 0 10px;color:var(--green);font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.assistant-terminal{overflow:auto;border:1px solid var(--border);border-radius:11px;background:#090d11}.assistant-terminal pre{width:max-content;min-width:100%;padding:20px;font-size:12px;line-height:1.55}.terminal-wide{display:inline-block;width:2ch;overflow:visible;vertical-align:baseline}.generated-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}.generated-head h3{margin:0}.config-copy{border:0;border-radius:7px;padding:8px 11px;background:var(--green);color:#07110a;cursor:pointer;font-weight:800}.generated-config{margin-top:10px;border:1px solid var(--border);border-radius:9px;background:#090d11;padding:16px;color:#cbd5df;font:12px/1.55 "SFMono-Regular",Consolas,monospace;white-space:pre;overflow:auto}.migration-note{margin:18px 0 0;padding:13px 15px;border-left:3px solid var(--purple);background:rgba(169,139,234,.08);color:var(--muted);font-size:.9rem}@media(max-width:1100px){.configurator{grid-template-columns:1fr}}@media(max-width:520px){.config-options{grid-template-columns:1fr}.config-panel,.config-result{padding:18px}}
         .config-result,.terminal,.assistant-terminal{min-width:0;max-width:100%}
+        .project-stats,.activity-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.project-stats{margin:34px 0 18px}.project-stat{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:15px;background:linear-gradient(145deg,var(--panel),#111820);padding:24px}.project-stat::after{position:absolute;right:-24px;bottom:-34px;width:100px;height:100px;border-radius:50%;background:rgba(114,196,131,.08);content:""}.stat-label{display:block;color:var(--muted);font-size:.78rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase}.stat-value{display:block;margin-top:5px;color:var(--green);font-size:clamp(1.8rem,4vw,2.8rem);font-weight:850;line-height:1.1}.activity-card{display:flex;min-width:0;min-height:220px;flex-direction:column;border:1px solid var(--border);border-radius:15px;background:linear-gradient(145deg,var(--panel),#111820);padding:24px;color:var(--text);text-decoration:none;transition:border-color 180ms ease,transform 180ms ease}.activity-card:hover{border-color:var(--green);transform:translateY(-3px)}.activity-card:focus-visible{outline:3px solid rgba(114,196,131,.45);outline-offset:3px}.activity-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.activity-kind{color:var(--green);font-size:.78rem;font-weight:850;letter-spacing:.09em;text-transform:uppercase}.activity-arrow{color:var(--muted);font-size:1.15rem}.activity-title{margin:22px 0 10px;font-size:1.22rem;line-height:1.35;overflow-wrap:anywhere}.activity-description{margin:0 0 20px;color:var(--muted);font-size:.92rem}.activity-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font:12px/1.4 "SFMono-Regular",Consolas,monospace}.activity-meta span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-line{display:flex;align-items:center;gap:8px;margin-top:18px;color:var(--muted);font-size:.82rem}.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(114,196,131,.1)}.live-line[data-state="error"] .live-dot{background:var(--yellow);box-shadow:0 0 0 4px rgba(246,200,95,.1)}
         @media(max-width:900px){
             .terminal-dashboard,.terminal-dashboard.secondary{grid-template-columns:repeat(2,max-content)}
+            .project-stats,.activity-grid{grid-template-columns:1fr 1fr}.activity-grid .activity-card:last-child{grid-column:1/-1}
         }
         @media(max-width:560px){
             body{overflow-x:hidden}
@@ -40,6 +42,7 @@
             .terminal-card{min-width:0}
             section{padding:54px 0}
             .card{padding:22px}
+            .project-stats,.activity-grid{grid-template-columns:1fr}.activity-grid .activity-card:last-child{grid-column:auto}.project-stat,.activity-card{padding:20px}.activity-card{min-height:190px}
             .install{padding:18px}
             .command{display:grid;grid-template-columns:minmax(0,1fr);overflow:hidden;padding:13px}
             .command code{display:block;max-width:100%;padding-bottom:4px;overflow-x:auto}
@@ -60,6 +63,7 @@
         <div class="nav-group">
             <nav class="links" aria-label="Main navigation">
                 <a href="#features" data-de="Features" data-en="Features">Features</a>
+                <a href="#project" data-de="Projekt" data-en="Project">Projekt</a>
                 <a href="#configurator" data-de="Konfigurator" data-en="Configurator">Konfigurator</a>
                 <a href="#install" data-de="Installation" data-en="Install">Installation</a>
                 <a href="https://github.com/foxly-it/foxly-motd" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
@@ -106,6 +110,37 @@
                 <article class="card"><div class="icon">🔄</div><h3 data-de="Sichere Updates" data-en="Safe updates">Sichere Updates</h3><p data-de="Versionierte Releases, SHA-256-Prüfung, Backups und ein integrierter Rollback." data-en="Versioned releases, SHA-256 verification, backups and integrated rollback.">Versionierte Releases, SHA-256-Prüfung, Backups und ein integrierter Rollback.</p></article>
                 <article class="card"><div class="icon">🌍</div><h3 data-de="Deutsch oder Englisch" data-en="German or English">Deutsch oder Englisch</h3><p data-de="Automatisch über die System-Locale oder fest über die Konfiguration ausgewählt." data-en="Selected automatically from the system locale or explicitly in the configuration.">Automatisch über die System-Locale oder fest über die Konfiguration ausgewählt.</p></article>
             </div>
+        </section>
+        <section id="project">
+            <div class="eyebrow" data-de="Open Source · Live von GitHub" data-en="Open source · Live from GitHub">Open Source · Live von GitHub</div>
+            <h2 data-de="Transparent entwickelt. Direkt nachvollziehbar." data-en="Built transparently. Easy to follow.">Transparent entwickelt. Direkt nachvollziehbar.</h2>
+            <p class="section-lead" data-de="Version, Downloads und die jüngste Projektaktivität werden direkt aus dem öffentlichen GitHub-Repository geladen." data-en="Version, downloads and recent project activity are loaded directly from the public GitHub repository.">Version, Downloads und die jüngste Projektaktivität werden direkt aus dem öffentlichen GitHub-Repository geladen.</p>
+            <div class="project-stats" aria-live="polite">
+                <div class="project-stat"><span class="stat-label" data-de="Aktuelle Version" data-en="Current version">Aktuelle Version</span><strong class="stat-value" id="project-version">v1.6.3</strong></div>
+                <div class="project-stat"><span class="stat-label" data-de="Release-Downloads" data-en="Release downloads">Release-Downloads</span><strong class="stat-value" id="project-downloads">–</strong></div>
+                <div class="project-stat"><span class="stat-label" data-de="Veröffentlichte Releases" data-en="Published releases">Veröffentlichte Releases</span><strong class="stat-value" id="project-releases">–</strong></div>
+            </div>
+            <div class="activity-grid">
+                <a class="activity-card" id="activity-commit-link" href="https://github.com/foxly-it/foxly-motd/commits/main" target="_blank" rel="noopener noreferrer">
+                    <div class="activity-top"><span class="activity-kind" data-de="Letzter Commit" data-en="Latest commit">Letzter Commit</span><span class="activity-arrow" aria-hidden="true">↗</span></div>
+                    <h3 class="activity-title" id="activity-commit-title" data-de="Projektaktivität wird geladen …" data-en="Loading project activity …">Projektaktivität wird geladen …</h3>
+                    <p class="activity-description" id="activity-commit-description" data-de="Neuester Stand auf dem main-Branch." data-en="Latest state on the main branch.">Neuester Stand auf dem main-Branch.</p>
+                    <div class="activity-meta"><span id="activity-commit-author">GitHub</span><time id="activity-commit-date">–</time></div>
+                </a>
+                <a class="activity-card" id="activity-pr-link" href="https://github.com/foxly-it/foxly-motd/pulls?q=is%3Apr+is%3Amerged" target="_blank" rel="noopener noreferrer">
+                    <div class="activity-top"><span class="activity-kind" data-de="Letzter Pull Request" data-en="Latest pull request">Letzter Pull Request</span><span class="activity-arrow" aria-hidden="true">↗</span></div>
+                    <h3 class="activity-title" id="activity-pr-title" data-de="Pull Requests werden geladen …" data-en="Loading pull requests …">Pull Requests werden geladen …</h3>
+                    <p class="activity-description" id="activity-pr-description" data-de="Zuletzt gemergte Änderung im Repository." data-en="Most recently merged repository change.">Zuletzt gemergte Änderung im Repository.</p>
+                    <div class="activity-meta"><span id="activity-pr-author">GitHub</span><time id="activity-pr-date">–</time></div>
+                </a>
+                <a class="activity-card" id="activity-release-link" href="https://github.com/foxly-it/foxly-motd/releases/latest" target="_blank" rel="noopener noreferrer">
+                    <div class="activity-top"><span class="activity-kind" data-de="Release-Log" data-en="Release log">Release-Log</span><span class="activity-arrow" aria-hidden="true">↗</span></div>
+                    <h3 class="activity-title" id="activity-release-title">v1.6.3</h3>
+                    <p class="activity-description" id="activity-release-description" data-de="Versionierte Downloads mit SHA-256-Prüfsummen." data-en="Versioned downloads with SHA-256 checksums.">Versionierte Downloads mit SHA-256-Prüfsummen.</p>
+                    <div class="activity-meta"><span id="activity-release-assets" data-de="Release-Artefakte" data-en="Release assets">Release-Artefakte</span><time id="activity-release-date">–</time></div>
+                </a>
+            </div>
+            <div class="live-line" id="project-live-status" data-state="loading"><span class="live-dot" aria-hidden="true"></span><span id="project-live-label" data-de="GitHub-Livedaten werden geladen …" data-en="Loading live GitHub data …">GitHub-Livedaten werden geladen …</span></div>
         </section>
         <section id="configurator">
             <div class="eyebrow" data-de="Dein Dashboard" data-en="Your dashboard">Dein Dashboard</div>
@@ -164,6 +199,8 @@
 </div>
 <script>
     let currentLanguage = "de";
+    let projectActivity = null;
+    let projectActivityState = "loading";
     const titles = {de:"Foxly MOTD – Systeminformationen ohne Login-Wartezeit",en:"Foxly MOTD – system information without login delays"};
     const descriptions = {de:"Foxly MOTD – schnelles, updatefähiges System-Dashboard für Debian und Ubuntu.",en:"Foxly MOTD – a fast, updateable system dashboard for Debian and Ubuntu."};
     function setLanguage(language, persist=true){
@@ -176,6 +213,99 @@
         document.querySelector('meta[name="description"]').content=descriptions[language];
         if(persist)localStorage.setItem("foxly-motd-language",language);
         renderAssistant();
+        renderProjectActivity();
+    }
+    function firstMeaningfulLine(value){
+        return String(value||"").split("\n").map(line=>line.trim()).find(line=>line&&!line.startsWith("#"))?.replace(/^[-*]\s*/,"")||"";
+    }
+    function summarizeProjectActivity(releases,commits,pulls){
+        const published=releases.filter(release=>!release.draft&&!release.prerelease);
+        const latestRelease=published[0]||null;
+        const latestCommit=commits[0]||null;
+        const latestPull=pulls.find(pull=>pull.merged_at)||null;
+        const downloads=published.reduce((total,release)=>total+(release.assets||[]).filter(asset=>/\.tar\.gz$/.test(asset.name)).reduce((sum,asset)=>sum+(asset.download_count||0),0),0);
+        return {
+            version:latestRelease?.tag_name||"–",downloads,releases:published.length,
+            commit:latestCommit?{title:firstMeaningfulLine(latestCommit.commit?.message),sha:latestCommit.sha?.slice(0,7)||"",author:latestCommit.author?.login||latestCommit.commit?.author?.name||"GitHub",date:latestCommit.commit?.author?.date||"",url:latestCommit.html_url||""}:null,
+            pull:latestPull?{title:latestPull.title||"",number:latestPull.number||"",author:latestPull.user?.login||"GitHub",date:latestPull.merged_at||"",url:latestPull.html_url||""}:null,
+            release:latestRelease?{title:latestRelease.name||latestRelease.tag_name,description:firstMeaningfulLine(latestRelease.body),date:latestRelease.published_at||"",url:latestRelease.html_url||"",assets:(latestRelease.assets||[]).length}:null
+        };
+    }
+    function setProjectText(id,value){
+        const element=document.getElementById(id);
+        if(element)element.textContent=value;
+    }
+    function setProjectLink(id,value){
+        const element=document.getElementById(id);
+        if(element&&value)element.href=value;
+    }
+    function formatProjectDate(value){
+        if(!value)return "–";
+        return new Intl.DateTimeFormat(currentLanguage==="de"?"de-DE":"en-US",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(value));
+    }
+    function renderProjectActivity(){
+        const status=document.getElementById("project-live-status");
+        if(!status)return;
+        status.dataset.state=projectActivityState;
+        const statusLabels={
+            loading:{de:"GitHub-Livedaten werden geladen …",en:"Loading live GitHub data …"},
+            live:{de:"Live aus dem öffentlichen GitHub-Repository · 10 Minuten lokal zwischengespeichert",en:"Live from the public GitHub repository · cached locally for 10 minutes"},
+            error:{de:"GitHub-Livedaten derzeit nicht erreichbar · Fallback aktiv",en:"GitHub live data currently unavailable · fallback active"}
+        };
+        setProjectText("project-live-label",statusLabels[projectActivityState]?.[currentLanguage]||statusLabels.loading[currentLanguage]);
+        if(!projectActivity)return;
+        setProjectText("project-version",projectActivity.version);
+        setProjectText("project-downloads",new Intl.NumberFormat(currentLanguage==="de"?"de-DE":"en-US").format(projectActivity.downloads));
+        setProjectText("project-releases",new Intl.NumberFormat(currentLanguage==="de"?"de-DE":"en-US").format(projectActivity.releases));
+        if(projectActivity.commit){
+            setProjectText("activity-commit-title",projectActivity.commit.title);
+            setProjectText("activity-commit-description",`${projectActivity.commit.sha} · main`);
+            setProjectText("activity-commit-author",projectActivity.commit.author);
+            setProjectText("activity-commit-date",formatProjectDate(projectActivity.commit.date));
+            setProjectLink("activity-commit-link",projectActivity.commit.url);
+        }
+        if(projectActivity.pull){
+            setProjectText("activity-pr-title",projectActivity.pull.title);
+            setProjectText("activity-pr-description",`${currentLanguage==="de"?"Gemergt":"Merged"} · #${projectActivity.pull.number}`);
+            setProjectText("activity-pr-author",projectActivity.pull.author);
+            setProjectText("activity-pr-date",formatProjectDate(projectActivity.pull.date));
+            setProjectLink("activity-pr-link",projectActivity.pull.url);
+        }
+        if(projectActivity.release){
+            setProjectText("activity-release-title",projectActivity.release.title);
+            setProjectText("activity-release-description",projectActivity.release.description||(currentLanguage==="de"?"Versionierte Downloads mit SHA-256-Prüfsummen.":"Versioned downloads with SHA-256 checksums."));
+            setProjectText("activity-release-assets",`${projectActivity.release.assets} ${currentLanguage==="de"?"Artefakte":"assets"}`);
+            setProjectText("activity-release-date",formatProjectDate(projectActivity.release.date));
+            setProjectLink("activity-release-link",projectActivity.release.url);
+        }
+    }
+    async function githubProjectJson(path){
+        const response=await fetch(`https://api.github.com/repos/foxly-it/foxly-motd/${path}`,{headers:{Accept:"application/vnd.github+json"}});
+        if(!response.ok)throw new Error(`GitHub API ${response.status}`);
+        return response.json();
+    }
+    async function loadProjectActivity(){
+        const cacheKey="foxly-motd-project-activity-v1";
+        try{
+            const cached=JSON.parse(sessionStorage.getItem(cacheKey)||"null");
+            if(cached&&Date.now()-cached.savedAt<600000){
+                projectActivity=cached.data;
+                projectActivityState="live";
+                renderProjectActivity();
+                return;
+            }
+            const [releases,commits,pulls]=await Promise.all([
+                githubProjectJson("releases?per_page=100"),
+                githubProjectJson("commits?sha=main&per_page=1"),
+                githubProjectJson("pulls?state=closed&sort=updated&direction=desc&per_page=20")
+            ]);
+            projectActivity=summarizeProjectActivity(releases,commits,pulls);
+            projectActivityState="live";
+            sessionStorage.setItem(cacheKey,JSON.stringify({savedAt:Date.now(),data:projectActivity}));
+        }catch(error){
+            projectActivityState="error";
+        }
+        renderProjectActivity();
     }
     function copyCommand(){
         const button=document.querySelector(".copy");
@@ -347,6 +477,7 @@
     alignStaticTerminalCards();
     const preferred=localStorage.getItem("foxly-motd-language")||(navigator.language.toLowerCase().startsWith("de")?"de":"en");
     setLanguage(preferred,false);
+    loadProjectActivity();
 </script>
 </body>
 </html>

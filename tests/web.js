@@ -46,6 +46,11 @@ check(html.includes("@keyframes cursor-blink") && html.includes("prefers-reduced
 check(html.includes("@keyframes terminal-settle") && html.includes("rotateY(-8deg) translateX(16px)"), "Terminal hover animation missing");
 check(html.includes("(hover:hover) and (pointer:fine)"), "Terminal hover capability guard missing");
 check(html.includes('id="configurator"') && html.includes('id="motd-configurator"'), "Visual configurator missing");
+check(html.includes('id="project"') && html.includes('id="project-version"') && html.includes('id="project-downloads"'), "Live project statistics missing");
+check((html.match(/class="activity-card"/g) || []).length === 3, "Three-column project activity grid missing");
+check(html.includes("releases?per_page=100") && html.includes("commits?sha=main&per_page=1") && html.includes("pulls?state=closed"), "GitHub activity endpoints missing");
+check(html.includes("download_count") && html.includes("sessionStorage") && html.includes("600000"), "Live download count or API cache missing");
+check(html.includes("setProjectText") && html.includes("element.textContent=value") && !html.includes("activity-title\").innerHTML"), "External GitHub text is not rendered safely");
 check(html.includes('id="assistant-preview"') && html.includes('aria-live="polite"'), "Accessible live preview missing");
 check(html.includes('id="assistant-config"') && html.includes("copyAssistantConfig"), "Generated configuration output missing");
 check(html.includes('id="cfg-frame"') && html.includes('id="cfg-package-names"') && html.includes('id="cfg-package-limit"'), "Appearance and package controls missing");
@@ -63,6 +68,11 @@ const responsiveHelpers = html.match(/function responsiveCardColumns[\s\S]*?(?= 
 check(responsiveHelpers, "Responsive assistant helpers missing");
 const responsiveChecks = new Function(`const window={innerWidth:1200}; const padDisplay=(value,width)=>value.padEnd(width," "); ${responsiveHelpers[0]}; const preview=width=>({parentElement:{clientWidth:width}}); return [responsiveCardColumns(preview(390)),responsiveCardColumns(preview(768)),responsiveCardColumns(preview(1200)),renderCardGrid([{title:"A",lines:["1"]},{title:"B",lines:["2"]}],1).includes("")];`)();
 check(responsiveChecks.join(",") === "1,2,3,true", "Responsive assistant breakpoints are incorrect");
+const projectSummaryHelpers = html.match(/function firstMeaningfulLine[\s\S]*?(?=    function setProjectText)/);
+check(projectSummaryHelpers, "Project activity summary helper missing");
+const projectSummary = new Function(`${projectSummaryHelpers[0]}; return summarizeProjectActivity([{tag_name:"v2.0.0",name:"Release 2",draft:false,prerelease:false,published_at:"2026-01-03",assets:[{name:"foxly.tar.gz",download_count:12},{name:"checksums.txt",download_count:99}]}],[{sha:"abcdef123",html_url:"https://example.test/commit",commit:{message:"Ship release\\n\\nDetails",author:{name:"Foxly",date:"2026-01-02"}}}],[{number:4,title:"Merged work",merged_at:"2026-01-01",html_url:"https://example.test/pr",user:{login:"foxly"}}]);`)();
+check(projectSummary.version === "v2.0.0" && projectSummary.downloads === 12 && projectSummary.releases === 1, "Project release statistics are incorrect");
+check(projectSummary.commit.title === "Ship release" && projectSummary.commit.sha === "abcdef1" && projectSummary.pull.number === 4, "Commit or PR activity summary is incorrect");
 check(html.includes("Existing values in /etc/default/foxly-motd are retained"), "Configuration migration notice missing");
 inlineScripts.forEach(script => new Function(script));
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
