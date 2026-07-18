@@ -37,6 +37,9 @@ check(html.includes("width:min(1400px") && html.includes("minmax(320px,.7fr) min
 check(html.includes("function fitTerminalPreview") && html.includes("pre.scrollWidth>viewport.clientWidth"), "Rendered terminal-width fitting missing");
 check(html.includes("function alignedDetails") && html.includes("function alignStaticTerminalCards") && html.includes("grid-template-columns:max-content max-content"), "Aligned terminal value tabs missing");
 check(html.includes("@media(max-width:1100px)"), "Wide terminal breakpoint missing");
+check(html.includes("@media(max-width:900px)") && html.includes("repeat(2,max-content)"), "Tablet terminal grid missing");
+check(html.includes("@media(max-width:560px)") && html.includes("grid-template-columns:max-content;row-gap:1.35em"), "Smartphone terminal grid missing");
+check(html.includes("function responsiveCardColumns") && html.includes("renderCardGrid(assistantCards(language),columns)"), "Responsive assistant columns missing");
 check((html.match(/class="terminal-prompt"/g) || []).length === 2, "Terminal prompts missing");
 check((html.match(/class="cursor" aria-hidden="true"/g) || []).length === 2, "Terminal cursors missing");
 check(html.includes("@keyframes cursor-blink") && html.includes("prefers-reduced-motion:reduce"), "Accessible cursor animation missing");
@@ -56,6 +59,10 @@ const fitHelper = html.match(/function fitTerminalPreview[\s\S]*?(?=    let fitR
 check(fitHelper, "Terminal fitting helper missing");
 const fittedSize = new Function(`${fitHelper[0]}; let size; const pre={parentElement:{clientWidth:100},scrollWidth:130,style:{set fontSize(value){size=parseFloat(value);pre.scrollWidth=size*10}}}; fitTerminalPreview(pre); return size;`)();
 check(fittedSize === 10, "Terminal fitting does not use the visible parent width");
+const responsiveHelpers = html.match(/function responsiveCardColumns[\s\S]*?(?=    function renderAssistant)/);
+check(responsiveHelpers, "Responsive assistant helpers missing");
+const responsiveChecks = new Function(`const window={innerWidth:1200}; const padDisplay=(value,width)=>value.padEnd(width," "); ${responsiveHelpers[0]}; const preview=width=>({parentElement:{clientWidth:width}}); return [responsiveCardColumns(preview(390)),responsiveCardColumns(preview(768)),responsiveCardColumns(preview(1200)),renderCardGrid([{title:"A",lines:["1"]},{title:"B",lines:["2"]}],1).includes("")];`)();
+check(responsiveChecks.join(",") === "1,2,3,true", "Responsive assistant breakpoints are incorrect");
 check(html.includes("Existing values in /etc/default/foxly-motd are retained"), "Configuration migration notice missing");
 inlineScripts.forEach(script => new Function(script));
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
