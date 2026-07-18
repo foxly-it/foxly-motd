@@ -134,7 +134,7 @@ assert_matches "$TEST_DIR/layout" 'Remote Host: +203.0.113.5'
 assert_contains "$TEST_DIR/layout" '🌐 [ NETZWERK ]'
 assert_contains "$TEST_DIR/layout" '📊 [ RESSOURCEN ]'
 assert_contains "$TEST_DIR/layout" '👤 [ SITZUNG ]'
-assert_contains "$TEST_DIR/layout" '⚙ [ SYSTEMSTATUS ]'
+assert_contains "$TEST_DIR/layout" '⚙️ [ SYSTEMSTATUS ]'
 assert_contains "$TEST_DIR/layout" '📦 [ PAKET-UPDATES ]'
 assert_matches "$TEST_DIR/layout" 'Systemd-Dienste: +2 fehlgeschlagen'
 assert_matches "$TEST_DIR/layout" 'Neustart nötig: +Ja'
@@ -157,6 +157,11 @@ health_line=$(grep -nF '[ SYSTEMSTATUS ]' "$TEST_DIR/layout" | cut -d: -f1)
 packages_line=$(grep -nF '[ PAKET-UPDATES ]' "$TEST_DIR/layout" | cut -d: -f1)
 ((network_line == resources_line && resources_line == session_line && session_line < health_line && health_line == packages_line)) ||
     fail 'Dashboard groups are not arranged as a three-column grid'
+network_detail_line=$(grep -nF 'IP-Adresse(n):' "$TEST_DIR/layout" | cut -d: -f1)
+uptime_line=$(grep -nF 'Systemlaufzeit:' "$TEST_DIR/layout" | cut -d: -f1)
+current_user_line=$(grep -nF 'Aktueller Nutzer:' "$TEST_DIR/layout" | cut -d: -f1)
+((network_detail_line == network_line + 2)) || fail 'Missing vertical gap below dashboard headings'
+((current_user_line == uptime_line + 2)) || fail 'Missing vertical gap between session details'
 
 printf 'Test: PAM and login-session remote host fallbacks\n'
 env -u SSH_CONNECTION -u SSH_CLIENT \
