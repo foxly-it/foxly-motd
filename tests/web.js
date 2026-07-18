@@ -30,11 +30,12 @@ check(html.includes("[ NETWORK ]") && html.includes("[ RESOURCES ]") && html.inc
 check((html.match(/class="terminal-dashboard"/g) || []).length === 2 && (html.match(/class="terminal-dashboard secondary"/g) || []).length === 2, "Grid-based terminal dashboard missing");
 check((html.match(/class="terminal-card"/g) || []).length === 12, "Terminal dashboard cards missing");
 check((html.match(/class="terminal-icon"/g) || []).length === 12 && html.includes("row-gap:.16em") && html.includes("margin-bottom:.32em"), "Terminal icon sizing or vertical rhythm missing");
-check(html.includes("🐳 Docker-Container") && html.includes("🐳 Docker containers") && html.includes('de?"aktiv: 17":"running: 17"'), "Framed Docker preview missing");
+check(html.includes("🐳 Docker-Container") && html.includes("🐳 Docker containers") && html.includes('de?"aktiv:":"running:"'), "Framed Docker preview missing");
 check(!html.includes("⚙ Systemd"), "Fragile system-health glyph remains in preview");
 check((html.match(/class="sysinfo-box"/g) || []).length === 2, "Framed system information preview missing");
 check(html.includes("width:min(1400px") && html.includes("minmax(320px,.7fr) minmax(0,1.3fr)"), "Wide terminal layout missing");
 check(html.includes("function fitTerminalPreview") && html.includes("pre.scrollWidth>viewport.clientWidth"), "Rendered terminal-width fitting missing");
+check(html.includes("function alignedDetails") && html.includes("function alignStaticTerminalCards") && html.includes("grid-template-columns:max-content max-content"), "Aligned terminal value tabs missing");
 check(html.includes("@media(max-width:1100px)"), "Wide terminal breakpoint missing");
 check((html.match(/class="terminal-prompt"/g) || []).length === 2, "Terminal prompts missing");
 check((html.match(/class="cursor" aria-hidden="true"/g) || []).length === 2, "Terminal cursors missing");

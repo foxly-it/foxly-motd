@@ -125,8 +125,9 @@ PATH="$LAYOUT_BIN:$PATH" \
     SSH_CONNECTION='203.0.113.5 12345 192.0.2.10 22' \
     "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout"
 assert_contains "$TEST_DIR/layout" 'eth0: 192.0.2.10/24'
-assert_contains "$TEST_DIR/layout" 'eth1: 198.51.100.20/24'
-assert_contains "$TEST_DIR/layout" 'DNS-Server: 10.100.0.1'
+assert_contains "$TEST_DIR/layout" 'eth1:'
+assert_contains "$TEST_DIR/layout" '198.51.100.20/24'
+assert_matches "$TEST_DIR/layout" 'DNS-Server: +10\.100\.0\.1'
 assert_contains "$TEST_DIR/layout" '1.1.1.1'
 assert_matches "$TEST_DIR/layout" 'RAM benutzt: +60,0%'
 assert_matches "$TEST_DIR/layout" 'Swap benutzt: +25,0%'
@@ -182,7 +183,27 @@ network_detail_line=$(grep -nF 'IP-Adresse(n):' "$TEST_DIR/layout" | cut -d: -f1
 uptime_line=$(grep -nF 'Systemlaufzeit:' "$TEST_DIR/layout" | cut -d: -f1)
 current_user_line=$(grep -nF 'Aktueller Nutzer:' "$TEST_DIR/layout" | cut -d: -f1)
 ((network_detail_line == network_line + 2)) || fail 'Missing vertical gap below dashboard headings'
-((current_user_line == uptime_line + 1)) || fail 'Unexpected blank row between session details'
+if ((current_user_line > uptime_line + 1)); then
+    sed -n "$((uptime_line + 1)),$((current_user_line - 1))p" "$TEST_DIR/layout" |
+        grep -Eq '^│ +│$' && fail 'Unexpected blank row between session details'
+fi
+
+printf 'Test: adaptive card widths and aligned value tabs\n'
+FOXLY_MOTD_COLUMNS=180 \
+    PATH="$LAYOUT_BIN:$PATH" \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    SSH_CONNECTION='203.0.113.5 12345 192.0.2.10 22' \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-wide"
+assert_matches "$TEST_DIR/layout-wide" 'IP-Adresse\(n\): +eth0: 192\.0\.2\.10/24'
+assert_contains "$TEST_DIR/layout-wide" 'eth1: 198.51.100.20/24'
+assert_matches "$TEST_DIR/layout-wide" 'Systemlaufzeit: +[0-9]+'
+assert_matches "$TEST_DIR/layout-wide" 'Aktueller Nutzer: +[^ ]+'
+assert_matches "$TEST_DIR/layout-wide" 'Remote Host: +203\.0\.113\.5'
+assert_matches "$TEST_DIR/layout-wide" '^│ +1\.1\.1\.1'
 
 printf 'Test: zero-value Docker states are hidden\n'
 cat > "$LAYOUT_BIN/docker" << 'EOF'
