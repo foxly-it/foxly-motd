@@ -205,6 +205,27 @@ assert_matches "$TEST_DIR/layout-wide" 'Aktueller Nutzer: +[^ ]+'
 assert_matches "$TEST_DIR/layout-wide" 'Remote Host: +203\.0\.113\.5'
 assert_matches "$TEST_DIR/layout-wide" '^│ +1\.1\.1\.1'
 
+printf 'Test: responsive grid keeps the frame inside medium terminals\n'
+FOXLY_MOTD_COLUMNS=120 \
+    PATH="$LAYOUT_BIN:$PATH" \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    SSH_CONNECTION='203.0.113.5 12345 192.0.2.10 22' \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-medium"
+assert_matches "$TEST_DIR/layout-medium" 'IP-Adresse\(n\): +eth0: 192\.0\.2\.10/24'
+assert_matches "$TEST_DIR/layout-medium" 'Systemlaufzeit: +[0-9]+'
+network_line=$(grep -nF '[ NETZWERK ]' "$TEST_DIR/layout-medium" | cut -d: -f1)
+resources_line=$(grep -nF '[ RESSOURCEN ]' "$TEST_DIR/layout-medium" | cut -d: -f1)
+session_line=$(grep -nF '[ SITZUNG ]' "$TEST_DIR/layout-medium" | cut -d: -f1)
+((network_line == resources_line && session_line > resources_line)) ||
+    fail 'A 120-column terminal should use the two-column grid'
+medium_border_bytes=$(LC_ALL=C sed -n '1{s/[^─]//g;p;}' "$TEST_DIR/layout-medium" | wc -c | tr -d ' ')
+medium_border_width=$(((medium_border_bytes - 1) / 3))
+((medium_border_width <= 113)) || fail "Medium frame leaves no terminal safety margin: $medium_border_width"
+
 printf 'Test: zero-value Docker states are hidden\n'
 cat > "$LAYOUT_BIN/docker" << 'EOF'
 #!/usr/bin/env bash
