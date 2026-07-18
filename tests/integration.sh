@@ -140,7 +140,11 @@ assert_matches "$TEST_DIR/layout" 'Systemd-Dienste: +2 fehlgeschlagen'
 assert_matches "$TEST_DIR/layout" 'Neustart nötig: +Ja'
 assert_contains "$TEST_DIR/layout" '3 Paket-Updates verfügbar,'
 assert_contains "$TEST_DIR/layout" 'davon 0 Sicherheitsupdates.'
-assert_contains "$TEST_DIR/layout" 'Docker-Container  aktiv: 2 · gestoppt: 1 · fehlerhaft: 1 · Neustart: 1'
+assert_contains "$TEST_DIR/layout" '🐳 Docker-Container'
+assert_matches "$TEST_DIR/layout" 'aktiv: +2'
+assert_matches "$TEST_DIR/layout" 'gestoppt: +1'
+assert_matches "$TEST_DIR/layout" 'fehlerhaft: +1'
+assert_matches "$TEST_DIR/layout" 'Neustart: +1'
 assert_matches "$TEST_DIR/layout" '^╭─+╮$'
 assert_matches "$TEST_DIR/layout" '^╰─+╯$'
 assert_matches "$TEST_DIR/layout" '^│ Systeminformationen am .+ +│$'
@@ -155,13 +159,36 @@ resources_line=$(grep -nF '[ RESSOURCEN ]' "$TEST_DIR/layout" | cut -d: -f1)
 session_line=$(grep -nF '[ SITZUNG ]' "$TEST_DIR/layout" | cut -d: -f1)
 health_line=$(grep -nF '[ SYSTEMSTATUS ]' "$TEST_DIR/layout" | cut -d: -f1)
 packages_line=$(grep -nF '[ PAKET-UPDATES ]' "$TEST_DIR/layout" | cut -d: -f1)
-((network_line == resources_line && resources_line == session_line && session_line < health_line && health_line == packages_line)) ||
+docker_line=$(grep -nF '🐳 Docker-Container' "$TEST_DIR/layout" | cut -d: -f1)
+((network_line == resources_line && resources_line == session_line && session_line < health_line && health_line == packages_line && packages_line == docker_line)) ||
     fail 'Dashboard groups are not arranged as a three-column grid'
+docker_column=$(LC_ALL=C awk '/Docker-Container/ {sub(/^│ /, ""); print index($0, "🐳")}' "$TEST_DIR/layout")
+[[ "$docker_column" == 83 ]] || fail "Docker starts in inner byte column $docker_column instead of 83"
 network_detail_line=$(grep -nF 'IP-Adresse(n):' "$TEST_DIR/layout" | cut -d: -f1)
 uptime_line=$(grep -nF 'Systemlaufzeit:' "$TEST_DIR/layout" | cut -d: -f1)
 current_user_line=$(grep -nF 'Aktueller Nutzer:' "$TEST_DIR/layout" | cut -d: -f1)
 ((network_detail_line == network_line + 2)) || fail 'Missing vertical gap below dashboard headings'
-((current_user_line == uptime_line + 2)) || fail 'Missing vertical gap between session details'
+((current_user_line == uptime_line + 1)) || fail 'Unexpected blank row between session details'
+
+printf 'Test: zero-value Docker states are hidden\n'
+cat > "$LAYOUT_BIN/docker" << 'EOF'
+#!/usr/bin/env bash
+for ((i = 0; i < 17; i++)); do
+    printf 'running\tUp 2 hours (healthy)\n'
+done
+EOF
+chmod +x "$LAYOUT_BIN/docker"
+PATH="$LAYOUT_BIN:$PATH" \
+    FOXLY_MOTD_MEMINFO_FILE="$TEST_DIR/meminfo" \
+    FOXLY_MOTD_REBOOT_REQUIRED_FILE="$TEST_DIR/reboot-required" \
+    FOXLY_MOTD_CONFIG_FILE="$ROOT/etc/default/foxly-motd" \
+    FOXLY_MOTD_CACHE_FILE="$ROOT/var/cache/foxly-motd/packages" \
+    FOXLY_MOTD_STATE_DIR="$ROOT/var/lib/foxly-motd" \
+    "$ROOT/etc/update-motd.d/10-foxly-sysinfo" > "$TEST_DIR/layout-docker-filtered"
+assert_matches "$TEST_DIR/layout-docker-filtered" 'aktiv: +17'
+assert_not_contains "$TEST_DIR/layout-docker-filtered" 'gestoppt:'
+assert_not_contains "$TEST_DIR/layout-docker-filtered" 'fehlerhaft:'
+assert_not_contains "$TEST_DIR/layout-docker-filtered" 'Neustart:'
 
 printf 'Test: PAM and login-session remote host fallbacks\n'
 env -u SSH_CONNECTION -u SSH_CLIENT \
