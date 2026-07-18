@@ -17,6 +17,40 @@
         .terminal-prompt{display:block;margin-top:18px}.cursor{display:inline-block;width:.62em;height:1.05em;margin-left:.25em;background:#cbd5df;vertical-align:-.18em;animation:cursor-blink 1s steps(1,end) infinite}@keyframes cursor-blink{0%,48%{opacity:1}49%,100%{opacity:0}}@media(prefers-reduced-motion:reduce){.cursor{animation:none}}
         @keyframes terminal-settle{from{transform:perspective(900px) rotateZ(1deg) rotateY(-8deg) translateX(16px)}to{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0)}}@media(min-width:1021px) and (hover:hover) and (pointer:fine){.terminal{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0);transform-style:preserve-3d;transition:transform 280ms ease-in-out,box-shadow 280ms ease-in-out;animation:terminal-settle 700ms ease-out;will-change:transform}.terminal:hover{transform:perspective(900px) rotateZ(1deg) rotateY(-8deg) translateX(16px);box-shadow:0 30px 85px rgba(0,0,0,.48)}}@media(prefers-reduced-motion:reduce) and (min-width:1021px){.terminal{animation:none;transition:none}.terminal:hover{transform:perspective(900px) rotateZ(1deg) rotateY(0) translateX(0)}}
         .configurator{display:grid;grid-template-columns:minmax(280px,.6fr) minmax(0,1.4fr);gap:22px;align-items:start}.config-panel,.config-result{border:1px solid var(--border);border-radius:16px;background:var(--panel);padding:25px}.config-panel h3,.config-result h3{margin:0 0 16px}.config-field{display:grid;gap:7px;margin-bottom:20px;color:var(--muted);font-size:.9rem}.config-field select,.config-field input[type="number"]{width:100%;border:1px solid var(--border);border-radius:8px;background:#0d141b;color:var(--text);padding:10px 12px;font:inherit}.config-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}.config-option{display:flex;align-items:center;gap:9px;min-height:44px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--soft);cursor:pointer;font-size:.9rem}.config-option:has(input:disabled){opacity:.48;cursor:not-allowed}.config-option input{accent-color:var(--green)}.config-subtitle{margin:22px 0 10px;color:var(--green);font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.assistant-terminal{overflow:auto;border:1px solid var(--border);border-radius:11px;background:#090d11}.assistant-terminal pre{width:max-content;min-width:100%;padding:20px;font-size:12px;line-height:1.55}.terminal-wide{display:inline-block;width:2ch;overflow:visible;vertical-align:baseline}.generated-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}.generated-head h3{margin:0}.config-copy{border:0;border-radius:7px;padding:8px 11px;background:var(--green);color:#07110a;cursor:pointer;font-weight:800}.generated-config{margin-top:10px;border:1px solid var(--border);border-radius:9px;background:#090d11;padding:16px;color:#cbd5df;font:12px/1.55 "SFMono-Regular",Consolas,monospace;white-space:pre;overflow:auto}.migration-note{margin:18px 0 0;padding:13px 15px;border-left:3px solid var(--purple);background:rgba(169,139,234,.08);color:var(--muted);font-size:.9rem}@media(max-width:1100px){.configurator{grid-template-columns:1fr}}@media(max-width:520px){.config-options{grid-template-columns:1fr}.config-panel,.config-result{padding:18px}}
+        .config-result,.terminal,.assistant-terminal{min-width:0;max-width:100%}
+        @media(max-width:900px){
+            .terminal-dashboard,.terminal-dashboard.secondary{grid-template-columns:repeat(2,max-content)}
+        }
+        @media(max-width:560px){
+            body{overflow-x:hidden}
+            .wrap{width:calc(100% - 24px)}
+            .topbar{align-items:center;flex-wrap:wrap;gap:10px;padding:12px 0}
+            .nav-group{width:100%;align-items:center;justify-content:space-between;flex-direction:row}
+            .links a{margin-right:0}
+            .hero{gap:28px;padding:36px 0 54px}
+            h1{font-size:clamp(2.5rem,13vw,3rem)}
+            .lead{font-size:1.05rem}
+            .actions{display:grid;grid-template-columns:1fr}
+            .button{text-align:center}
+            .terminal{border-radius:12px}
+            .terminal-head{height:40px;padding:0 13px}
+            .hero .terminal pre{padding:16px 14px 20px;line-height:1.55}
+            .sysinfo-box{width:max-content;min-width:0;padding:10px 11px}
+            .terminal-dashboard,.terminal-dashboard.secondary{grid-template-columns:max-content;row-gap:1.35em;margin-top:1.35em}
+            .terminal-card{min-width:0}
+            section{padding:54px 0}
+            .card{padding:22px}
+            .install{padding:18px}
+            .command{display:grid;grid-template-columns:minmax(0,1fr);overflow:hidden;padding:13px}
+            .command code{display:block;max-width:100%;padding-bottom:4px;overflow-x:auto}
+            .copy,.config-copy{min-height:44px}
+            .command .copy{position:static;width:100%}
+            .config-panel,.config-result{padding:16px}
+            .assistant-terminal pre{padding:14px;line-height:1.5}
+            .generated-head{align-items:stretch;flex-direction:column}
+            .generated-config{max-width:100%;padding:13px;font-size:11px}
+            .footer{padding:18px}
+        }
     </style>
 </head>
 <body>
@@ -251,11 +285,18 @@
             }
         });
     }
-    function renderCardGrid(cards){
+    function responsiveCardColumns(preview){
+        const viewport=preview?.parentElement;
+        const width=viewport?.clientWidth||window.innerWidth;
+        if(width<520)return 1;
+        if(width<900)return 2;
+        return 3;
+    }
+    function renderCardGrid(cards,columns=3){
         const width=34,output=[];
-        for(let start=0;start<cards.length;start+=3){
+        for(let start=0;start<cards.length;start+=columns){
             if(start)output.push("");
-            const row=cards.slice(start,start+3).map(card=>[card.title,...card.lines]);
+            const row=cards.slice(start,start+columns).map(card=>[card.title,...card.lines]);
             const height=Math.max(...row.map(lines=>lines.length));
             for(let line=0;line<height;line++)output.push(row.map(lines=>padDisplay(lines[line]||"",width)).join("   ").trimEnd());
         }
@@ -266,7 +307,8 @@
         if(!preview)return;
         syncAssistantControls();
         const selected=configLanguage(),language=selected==="auto"?currentLanguage:selected,de=language==="de";
-        const dashboard=[de?"Systeminformationen am 17.07.2026 12:00:00":"System information at 17.07.2026 12:00:00","",...renderCardGrid(assistantCards(language))];
+        const columns=responsiveCardColumns(preview);
+        const dashboard=[de?"Systeminformationen am 17.07.2026 12:00:00":"System information at 17.07.2026 12:00:00","",...renderCardGrid(assistantCards(language),columns)];
         let output;
         if(checked("frame")){
             const width=Math.max(...dashboard.map(displayWidth));
@@ -295,7 +337,11 @@
     }
     document.getElementById("motd-configurator").addEventListener("input",renderAssistant);
     document.getElementById("motd-configurator").addEventListener("change",renderAssistant);
-    window.addEventListener("resize",scheduleTerminalFit);
+    let responsiveRenderRequest;
+    window.addEventListener("resize",()=>{
+        cancelAnimationFrame(responsiveRenderRequest);
+        responsiveRenderRequest=requestAnimationFrame(renderAssistant);
+    });
     if(document.fonts)document.fonts.ready.then(scheduleTerminalFit);
     document.getElementById("copyright-year").textContent=new Date().getFullYear();
     alignStaticTerminalCards();
