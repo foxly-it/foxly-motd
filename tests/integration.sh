@@ -148,6 +148,20 @@ assert_matches "$TEST_DIR/layout" 'Neustart: +1'
 assert_matches "$TEST_DIR/layout" '^╭─+╮$'
 assert_matches "$TEST_DIR/layout" '^╰─+╯$'
 assert_matches "$TEST_DIR/layout" '^│ Systeminformationen am .+ +│$'
+LC_ALL=C awk '
+    /^│/ {
+        line = $0
+        gsub(/🌐|📊|👤|📦|🐳|⚙️/, "XX", line)
+        gsub(/ä|ö|ü|Ä|Ö|Ü|ß/, "X", line)
+        gsub(/│/, "|", line)
+        if (!expected) expected = length(line)
+        if (length(line) != expected) {
+            printf "Expected display width %d, got %d: %s\n", expected, length(line), $0 > "/dev/stderr"
+            exit 1
+        }
+    }
+    END { if (!expected) exit 1 }
+' "$TEST_DIR/layout" || fail 'Box rows do not have equal terminal display widths'
 blank_box_rows=$(grep -Ec '^│ +│$' "$TEST_DIR/layout")
 ((blank_box_rows >= 1)) || fail 'Expected a separator between dashboard rows'
 resources_column=$(LC_ALL=C awk '/RESSOURCEN/ {sub(/^│ /, ""); print index($0, "📊")}' "$TEST_DIR/layout")
