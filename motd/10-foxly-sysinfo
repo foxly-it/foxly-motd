@@ -290,7 +290,7 @@ display_width() {
     plain=${plain//$RESET/}
     DISPLAY_WIDTH=${#plain}
     # These emoji occupy two terminal cells, while Bash counts one character.
-    for icon in '🌐' '📊' '👤' '📦'; do
+    for icon in '🌐' '📊' '👤' '📦' '🐳'; do
         [[ "$plain" == *"$icon"* ]] && ((DISPLAY_WIDTH++))
     done
 }
