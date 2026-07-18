@@ -224,11 +224,13 @@ if [[ "$LANG_CODE" == de ]]; then
     reboot_label="Neustart nötig:"
     yes_label="Ja"
     no_label="Nein"
-    docker_title="Docker-Container"
+    docker_group="🐳 Docker-Container"
     docker_active="aktiv"
     docker_stopped="gestoppt"
     docker_unhealthy="fehlerhaft"
     docker_restarting="Neustart"
+    docker_none="Keine Container vorhanden."
+    docker_unavailable="Keine Berechtigung oder Dienst nicht erreichbar."
     network_group="🌐 [ NETZWERK ]"
     resources_group="📊 [ RESSOURCEN ]"
     session_group="👤 [ SITZUNG ]"
@@ -255,11 +257,13 @@ else
     reboot_label="Reboot required:"
     yes_label="Yes"
     no_label="No"
-    docker_title="Docker containers"
+    docker_group="🐳 Docker containers"
     docker_active="running"
     docker_stopped="stopped"
     docker_unhealthy="unhealthy"
     docker_restarting="restarting"
+    docker_none="No containers found."
+    docker_unavailable="Permission denied or service unavailable."
     network_group="🌐 [ NETWORK ]"
     resources_group="📊 [ RESOURCES ]"
     session_group="👤 [ SESSION ]"
@@ -330,8 +334,8 @@ print_compact_detail() {
         printf '%s%s%s %s%s%s\n' "$COLOR" "$label" "$RESET" "$value_color" "$value" "$RESET"
     else
         printf '%s%s%s\n' "$COLOR" "$label" "$RESET"
-        wrap_text "$CELL_WIDTH" "$value" | while IFS= read -r line; do
-            printf '%s%s%s\n' "$value_color" "$line" "$RESET"
+        wrap_text "$((CELL_WIDTH - 2))" "$value" | while IFS= read -r line; do
+            printf '  %s%s%s\n' "$value_color" "$line" "$RESET"
         done
     fi
 }
@@ -379,9 +383,9 @@ print_grid_row() {
             print_padded "${third_lines[row]:-}" "$CELL_WIDTH"
         fi
         printf '\n'
-        # Terminal emulators do not support fractional line gaps. Blank rows
-        # mirror the website's spacing below headings and after the first detail.
-        if ((row < 2 && row + 1 < max)); then
+        # Terminal emulators do not support fractional line gaps. Keep one full
+        # blank row below headings, then render all detail rows compactly.
+        if ((row == 0 && row + 1 < max)); then
             printf '\n'
         fi
     done
@@ -527,6 +531,34 @@ dashboard_output=$(
         dashboard_cards+=("$packages_content")
     fi
 
+    if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
+        if docker_rows=$(timeout 2 docker ps -a --format '{{.State}}\t{{.Status}}' 2> /dev/null); then
+            docker_status=0
+        else
+            docker_status=$?
+        fi
+        docker_content=$(
+            print_group_heading "$docker_group"
+            if ((docker_status != 0)); then
+                wrap_text "$CELL_WIDTH" "$docker_unavailable"
+            else
+                running=$(printf '%s\n' "$docker_rows" | awk '$1 == "running" {count++} END {print count+0}')
+                stopped=$(printf '%s\n' "$docker_rows" | awk '$1 == "exited" || $1 == "dead" {count++} END {print count+0}')
+                unhealthy=$(printf '%s\n' "$docker_rows" | awk 'index($0, "(unhealthy)") {count++} END {print count+0}')
+                restarting=$(printf '%s\n' "$docker_rows" | awk '$1 == "restarting" {count++} END {print count+0}')
+                if ((running + stopped + unhealthy + restarting == 0)); then
+                    printf '%s\n' "$docker_none"
+                else
+                    ((running > 0)) && print_compact_detail "${docker_active}:" "$running" "$GREEN"
+                    ((stopped > 0)) && print_compact_detail "${docker_stopped}:" "$stopped" "$YELLOW"
+                    ((unhealthy > 0)) && print_compact_detail "${docker_unhealthy}:" "$unhealthy" "$YELLOW"
+                    ((restarting > 0)) && print_compact_detail "${docker_restarting}:" "$restarting" "$YELLOW"
+                fi
+            fi
+        )
+        dashboard_cards+=("$docker_content")
+    fi
+
     for ((i = 0; i < ${#dashboard_cards[@]}; i += 3)); do
         ((i == 0)) || printf '\n'
         print_grid_row "${dashboard_cards[i]}" "${dashboard_cards[i + 1]:-}" "${dashboard_cards[i + 2]:-}"
@@ -538,29 +570,6 @@ else
     printf '%s\n' "$dashboard_output"
 fi
 printf '\n'
-
-if [[ "$SHOW_DOCKER" == yes ]] && command -v docker > /dev/null 2>&1; then
-    docker_rows=$(timeout 2 docker ps -a --format '{{.State}}\t{{.Status}}' 2> /dev/null)
-    docker_status=$?
-    if ((docker_status != 0)); then
-        if [[ "$LANG_CODE" == de ]]; then
-            printf '%s🐳 Docker:%s keine Berechtigung oder Dienst nicht erreichbar\n\n' "$YELLOW" "$RESET"
-        else
-            printf '%s🐳 Docker:%s permission denied or service unavailable\n\n' "$YELLOW" "$RESET"
-        fi
-    else
-        running=$(printf '%s\n' "$docker_rows" | awk '$1 == "running" {count++} END {print count+0}')
-        stopped=$(printf '%s\n' "$docker_rows" | awk '$1 == "exited" || $1 == "dead" {count++} END {print count+0}')
-        unhealthy=$(printf '%s\n' "$docker_rows" | awk 'index($0, "(unhealthy)") {count++} END {print count+0}')
-        restarting=$(printf '%s\n' "$docker_rows" | awk '$1 == "restarting" {count++} END {print count+0}')
-        printf '%s🐳 %s%s  %s%s: %s%s · %s%s: %s%s · %s%s: %s%s · %s%s: %s%s\n\n' \
-            "$COLOR" "$docker_title" "$RESET" \
-            "$GREEN" "$docker_active" "$running" "$RESET" \
-            "$YELLOW" "$docker_stopped" "$stopped" "$RESET" \
-            "$YELLOW" "$docker_unhealthy" "$unhealthy" "$RESET" \
-            "$YELLOW" "$docker_restarting" "$restarting" "$RESET"
-    fi
-fi
 
 if [[ "$SHOW_UPDATE_NOTICE" == yes && -r "$STATE_DIR/version" && -r "$STATE_DIR/latest-version" ]]; then
     current=$(head -n 1 "$STATE_DIR/version")
