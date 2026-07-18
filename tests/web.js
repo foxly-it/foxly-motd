@@ -70,9 +70,10 @@ const responsiveChecks = new Function(`const window={innerWidth:1200}; const pad
 check(responsiveChecks.join(",") === "1,2,3,true", "Responsive assistant breakpoints are incorrect");
 const projectSummaryHelpers = html.match(/function firstMeaningfulLine[\s\S]*?(?=    function setProjectText)/);
 check(projectSummaryHelpers, "Project activity summary helper missing");
-const projectSummary = new Function(`${projectSummaryHelpers[0]}; return summarizeProjectActivity([{tag_name:"v2.0.0",name:"Release 2",draft:false,prerelease:false,published_at:"2026-01-03",assets:[{name:"foxly.tar.gz",download_count:12},{name:"checksums.txt",download_count:99}]}],[{sha:"abcdef123",html_url:"https://example.test/commit",commit:{message:"Ship release\\n\\nDetails",author:{name:"Foxly",date:"2026-01-02"}}}],[{number:4,title:"Merged work",merged_at:"2026-01-01",html_url:"https://example.test/pr",user:{login:"foxly"}}]);`)();
+const projectSummary = new Function(`${projectSummaryHelpers[0]}; return summarizeProjectActivity([{tag_name:"v2.0.0",name:"Release 2",body:"## Changes\\n* Improve website by @foxly-it in https://github.com/foxly-it/foxly-motd/pull/4",draft:false,prerelease:false,published_at:"2026-01-03",assets:[{name:"foxly.tar.gz",download_count:12},{name:"checksums.txt",download_count:99}]}],[{sha:"abcdef123",html_url:"https://example.test/commit",commit:{message:"Ship release\\n\\nDetails",author:{name:"Foxly",date:"2026-01-02"}}}],[{number:4,title:"Merged work",merged_at:"2026-01-01",html_url:"https://example.test/pr",user:{login:"foxly"}}]);`)();
 check(projectSummary.version === "v2.0.0" && projectSummary.downloads === 12 && projectSummary.releases === 1, "Project release statistics are incorrect");
 check(projectSummary.commit.title === "Ship release" && projectSummary.commit.sha === "abcdef1" && projectSummary.pull.number === 4, "Commit or PR activity summary is incorrect");
+check(projectSummary.release.entries.length === 1 && projectSummary.release.entries[0].pr === "4" && projectSummary.release.entries[0].author === "foxly-it", "Release log entries are incorrect");
 check(html.includes("Existing values in /etc/default/foxly-motd are retained"), "Configuration migration notice missing");
 inlineScripts.forEach(script => new Function(script));
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
