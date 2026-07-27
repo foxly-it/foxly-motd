@@ -55,6 +55,11 @@
             .generated-config{max-width:100%;padding:13px;font-size:11px}
             .footer{padding:18px}
         }
+        .links{padding:4px;border:1px solid var(--border);border-radius:12px;background:rgba(21,29,37,.78)}
+        .links a{margin:0;padding:7px 10px;border-radius:8px}
+        .links a:hover{background:var(--soft)}
+        .links .language-switch{gap:2px;margin-left:2px;padding:0 0 0 7px;border:0;border-left:1px solid var(--border);border-radius:0;background:transparent}
+        .links .lang-button{padding:6px 9px}
     </style>
 </head>
 <body>
@@ -68,11 +73,11 @@
                 <a href="#configurator" data-de="Konfigurator" data-en="Configurator">Konfigurator</a>
                 <a href="#install" data-de="Installation" data-en="Install">Installation</a>
                 <a href="https://github.com/foxly-it/foxly-motd" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+                <div class="language-switch" aria-label="Language">
+                    <button class="lang-button" id="btn-de" type="button" onclick="setLanguage('de')">DE</button>
+                    <button class="lang-button" id="btn-en" type="button" onclick="setLanguage('en')">EN</button>
+                </div>
             </nav>
-            <div class="language-switch" aria-label="Language">
-                <button class="lang-button" id="btn-de" type="button" onclick="setLanguage('de')">DE</button>
-                <button class="lang-button" id="btn-en" type="button" onclick="setLanguage('en')">EN</button>
-            </div>
         </div>
     </header>
     <main>
