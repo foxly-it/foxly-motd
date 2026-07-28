@@ -5,6 +5,10 @@ const root = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "docs", "index.html"), "utf8");
 const cname = fs.readFileSync(path.join(root, "docs", "CNAME"), "utf8").trim();
 const installer = fs.readFileSync(path.join(root, "docs", "install.sh"), "utf8");
+const docsPage = fs.readFileSync(path.join(root, "docs", "docs.html"), "utf8");
+const privacyPage = fs.readFileSync(path.join(root, "docs", "privacy.html"), "utf8");
+const imprintPage = fs.readFileSync(path.join(root, "docs", "imprint.html"), "utf8");
+const familyScript = fs.readFileSync(path.join(root, "docs", "family-pages.js"), "utf8");
 const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 
 function check(condition, message) {
@@ -18,8 +22,12 @@ check(html.includes('meta name="description"'), "Meta description missing");
 check(html.includes('data-de='), "German website content missing");
 check(html.includes('data-en='), "English website content missing");
 check(html.includes('navigator.language'), "Automatic browser language selection missing");
-check(html.includes("https://foxly.de/datenschutzerklaerung/"), "Privacy link missing");
-check(html.includes("https://foxly.de/legal-notice/"), "Legal notice link missing");
+check(html.includes('href="docs.html"'), "Local documentation link missing");
+check(html.includes('href="privacy.html"'), "Local privacy link missing");
+check(html.includes('href="imprint.html"'), "Local legal notice link missing");
+check(docsPage.includes('rel="canonical" href="https://motd.foxly.de/docs.html"'), "Documentation metadata missing");
+check(familyScript.includes("foxly-motd-language") && privacyPage.includes("GitHub Pages"), "Privacy details missing");
+check(imprintPage.includes("Digitale-Dienste-Gesetz"), "Legal notice details missing");
 check(html.includes('data-terminal="de"') && html.includes('data-terminal="en"'), "Bilingual terminal preview missing");
 check((html.match(/class="rainbow"/g) || []).length === 2, "Rainbow HomeLab preview missing");
 check(html.includes("/ /_/ / __ \\/ __ `__ \\/ _ \\/ /"), "HomeLab ASCII art missing");
