@@ -103,6 +103,8 @@ required=(
     motd/00-foxly-header
     motd/10-foxly-sysinfo
     libexec/foxly-motd-cache
+    libexec/foxly-motd-warp
+    libexec/foxly-motd-warp.fish
     systemd/foxly-motd-cache.service
     systemd/foxly-motd-cache.timer
     systemd/foxly-motd-update.service
@@ -124,7 +126,7 @@ version=$(head -n 1 "$SCRIPT_DIR/VERSION")
 }
 
 bash -n "$SCRIPT_DIR/bin/foxly-motd" "$SCRIPT_DIR/motd/00-foxly-header" \
-    "$SCRIPT_DIR/motd/10-foxly-sysinfo" "$SCRIPT_DIR/libexec/foxly-motd-cache"
+    "$SCRIPT_DIR/motd/10-foxly-sysinfo" "$SCRIPT_DIR/libexec/foxly-motd-cache" "$SCRIPT_DIR/libexec/foxly-motd-warp"
 
 install_dependencies() {
     [[ -z "$ROOT" ]] || return 0
@@ -234,6 +236,8 @@ backup_existing() {
     for path in \
         /usr/local/sbin/foxly-motd \
         /usr/local/lib/foxly-motd/cache \
+        /usr/local/lib/foxly-motd/warp \
+        /usr/local/lib/foxly-motd/warp.fish \
         /usr/local/lib/foxly-motd/install.sh \
         /etc/update-motd.d/00-foxly-header \
         /etc/update-motd.d/10-foxly-sysinfo \
@@ -261,6 +265,33 @@ install -d -m 0755 "${ROOT}/usr/local/sbin" "${ROOT}/usr/local/lib/foxly-motd" \
     "${ROOT}/var/cache/foxly-motd" "${ROOT}/var/backups/foxly-motd"
 install -m 0755 "$SCRIPT_DIR/bin/foxly-motd" "${ROOT}/usr/local/sbin/foxly-motd"
 install -m 0755 "$SCRIPT_DIR/libexec/foxly-motd-cache" "${ROOT}/usr/local/lib/foxly-motd/cache"
+install -m 0644 "$SCRIPT_DIR/libexec/foxly-motd-warp" "${ROOT}/usr/local/lib/foxly-motd/warp"
+install -m 0644 "$SCRIPT_DIR/libexec/foxly-motd-warp.fish" "${ROOT}/usr/local/lib/foxly-motd/warp.fish"
+# Each shell's system-wide interactive rc sources our own block, so Warp SSH
+# gets the dashboard even though it bypasses the normal PAM login. Only
+# append; preserve all existing shell configuration. Zsh/Fish are skipped
+# unless already installed (their /etc dir exists); Bash is always present.
+add_warp_hook() {
+    local rc=$1 body=$2
+    grep -Fqx '# BEGIN Foxly MOTD Warp' "$rc" 2> /dev/null && return 0
+    if [[ -f "$rc" ]]; then
+        cp -p "$rc" "${ROOT}/var/backups/foxly-motd/$(basename "$rc")-$(date +%Y%m%d-%H%M%S)"
+    fi
+    printf '\n# BEGIN Foxly MOTD Warp\n%s\n# END Foxly MOTD Warp\n' "$body" >> "$rc"
+}
+add_warp_hook "${ROOT}/etc/bash.bashrc" 'if [ -r /usr/local/lib/foxly-motd/warp ]; then
+    . /usr/local/lib/foxly-motd/warp
+fi'
+if [[ -d "${ROOT}/etc/zsh" ]]; then
+    add_warp_hook "${ROOT}/etc/zsh/zshrc" 'if [ -r /usr/local/lib/foxly-motd/warp ]; then
+    . /usr/local/lib/foxly-motd/warp
+fi'
+fi
+if [[ -d "${ROOT}/etc/fish" ]]; then
+    add_warp_hook "${ROOT}/etc/fish/config.fish" 'if test -r /usr/local/lib/foxly-motd/warp.fish
+    source /usr/local/lib/foxly-motd/warp.fish
+end'
+fi
 install -m 0755 "$SCRIPT_DIR/install.sh" "${ROOT}/usr/local/lib/foxly-motd/install.sh"
 install -m 0755 "$SCRIPT_DIR/motd/00-foxly-header" "${ROOT}/etc/update-motd.d/00-foxly-header"
 install -m 0755 "$SCRIPT_DIR/motd/10-foxly-sysinfo" "${ROOT}/etc/update-motd.d/10-foxly-sysinfo"

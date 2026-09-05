@@ -18,19 +18,24 @@ jobs:
       - name: Install shell tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck shfmt
+          sudo apt-get install --yes shellcheck shfmt zsh fish
 
       - name: Check Bash syntax
-        run: bash -n bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+        run: bash -n bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
+
+      - name: Check Fish syntax
+        run: fish --no-execute libexec/foxly-motd-warp.fish
 
       - name: Run ShellCheck
-        run: shellcheck -x bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+        run: shellcheck -x bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
 
       - name: Check formatting
-        run: shfmt -i 4 -ci -sr -d bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+        run: shfmt -i 4 -ci -sr -d bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
 
       - name: Run integration tests
-        run: bash tests/integration.sh
+        run: |
+          bash tests/integration.sh
+          python3 tests/warp.py
 
       - name: Check website
         run: node tests/web.js

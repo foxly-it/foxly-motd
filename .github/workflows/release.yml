@@ -24,14 +24,16 @@ jobs:
       - name: Install shell tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck shfmt
+          sudo apt-get install --yes shellcheck shfmt zsh fish
 
       - name: Validate release sources
         run: |
-          bash -n bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
-          shellcheck -x bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
-          shfmt -i 4 -ci -sr -d bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+          bash -n bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
+          fish --no-execute libexec/foxly-motd-warp.fish
+          shellcheck -x bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
+          shfmt -i 4 -ci -sr -d bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
           bash tests/integration.sh
+          python3 tests/warp.py
           node tests/web.js
 
       - name: Build release archive

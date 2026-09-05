@@ -189,6 +189,32 @@ Die MOTD führt beim Login keine ausgehenden Netzwerkaufrufe aus. Die angezeigte
 
 Die Abfragen von DNS, systemd und Docker besitzen jeweils ein Zeitlimit von zwei Sekunden. Ist eine Quelle nicht verfügbar, wird `N/A` beziehungsweise ein Hinweis ausgegeben, ohne den Login dauerhaft zu blockieren. Wenn `/etc/resolv.conf` auf einen lokalen Stub-Resolver zeigt, kann als DNS-Server beispielsweise `127.0.0.53` erscheinen.
 
+### Warp Terminal und Proxmox LXC
+
+Bei Warp kann die SSH-Shell die normale PAM-Loginanzeige umgehen. Der Installer
+richtet deshalb für Bash, Zsh und Fish einen Startaufruf in der jeweiligen
+systemweiten interaktiven Rc-Datei ein: `/etc/bash.bashrc`, `/etc/zsh/zshrc`
+beziehungsweise `/etc/fish/config.fish`. Zsh und Fish werden dabei nur
+eingerichtet, wenn die Shell zum Installationszeitpunkt bereits vorhanden ist
+(erkennbar an `/etc/zsh` beziehungsweise `/etc/fish`); Bash ist auf
+Debian/Ubuntu immer vorhanden. Wird eine dieser Shells erst nach der
+Installation nachgerüstet, richtet der nächste `foxly-motd update`-Lauf den
+Startaufruf ein.
+
+Der Hook zeigt das Dashboard in interaktiven Warp-SSH-Sitzungen einmal pro
+Terminal an; Warps Eingabeeditor, Blöcke und Vervollständigung bleiben
+verfügbar. Normale SSH-Logins verwenden weiterhin PAM. Nichtinteraktive
+Befehle und lokale Warp-Shells bleiben ohne zusätzliche Ausgabe;
+`~/.hushlogin` wird respektiert.
+
+Die Unterstützung wird auch bei Updates eingerichtet. Vor der ersten Ergänzung
+wird die jeweils vorhandene Rc-Datei unter `/var/backups/foxly-motd/`
+gesichert. Die Deinstallation entfernt nur den Foxly-Block und die
+zugehörigen Helfer aus allen drei Dateien.
+
+In der Proxmox-Webkonsole im Modus „shell“ findet kein normaler Login statt.
+Dort kann die Anzeige mit `foxly-motd preview` aufgerufen werden.
+
 ### Pfade
 
 | Zweck | Pfad |
@@ -294,9 +320,11 @@ Configuration is stored in `/etc/default/foxly-motd`. `MOTD_LANGUAGE=auto` follo
 ## Entwicklung
 
 ```bash
-bash -n bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
-shfmt -i 4 -ci -sr -d bin/foxly-motd install.sh docs/install.sh motd/* libexec/* tests/integration.sh
+bash -n bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
+fish --no-execute libexec/foxly-motd-warp.fish
+shfmt -i 4 -ci -sr -d bin/foxly-motd install.sh docs/install.sh motd/* libexec/foxly-motd-cache libexec/foxly-motd-warp tests/integration.sh
 bash tests/integration.sh
+python3 tests/warp.py
 node tests/web.js
 ```
 

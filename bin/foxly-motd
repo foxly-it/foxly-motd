@@ -233,6 +233,17 @@ set_update_mode() {
     success "Update mode set to $mode"
 }
 
+remove_warp_hook() {
+    local rc
+    for rc in "${ROOT}/etc/bash.bashrc" "${ROOT}/etc/zsh/zshrc" "${ROOT}/etc/fish/config.fish"; do
+        if [[ -f "$rc" ]] && grep -Fqx '# BEGIN Foxly MOTD Warp' "$rc"; then
+            sed -i.foxly-motd-bak '/^# BEGIN Foxly MOTD Warp$/,/^# END Foxly MOTD Warp$/d' "$rc"
+            rm -f "$rc.foxly-motd-bak"
+        fi
+    done
+    rm -f "${ROOT}/usr/local/lib/foxly-motd/warp" "${ROOT}/usr/local/lib/foxly-motd/warp.fish"
+}
+
 rollback() {
     require_root
     require_commands tar
@@ -245,6 +256,10 @@ rollback() {
         fail "No backup found in $BACKUP_DIR"
         return 1
     }
+    # Older backups predate Warp integration; remove files they cannot restore.
+    if ! tar -tzf "$archive" | grep -Ex '(\./)?usr/local/lib/foxly-motd/warp' > /dev/null; then
+        remove_warp_hook
+    fi
     tar -xzf "$archive" -C "${ROOT:-/}"
     systemctl_if_available && systemctl daemon-reload
     success "Restored $(basename "$archive")"
@@ -252,6 +267,7 @@ rollback() {
 
 uninstall_motd() {
     require_root
+    remove_warp_hook
     if systemctl_if_available; then
         systemctl disable --now foxly-motd-cache.timer foxly-motd-update.timer 2> /dev/null || true
     fi
