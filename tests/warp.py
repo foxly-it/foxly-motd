@@ -2,19 +2,31 @@
 import os
 from pathlib import Path
 import pty
+import select
 import subprocess
 import tempfile
+import time
 
 project = Path(__file__).resolve().parents[1]
+TIMEOUT = 10
 
 
-def run_pty(args, env):
+def run_pty(args, env, timeout=TIMEOUT):
     master, slave = pty.openpty()
     try:
         process = subprocess.Popen(args, stdin=slave, stdout=slave, stderr=slave, env=env)
         os.close(slave)
         output = b''
+        deadline = time.monotonic() + timeout
         while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                process.kill()
+                process.wait()
+                raise TimeoutError(f'{args}: PTY read timed out after {timeout}s; output so far: {output!r}')
+            ready, _, _ = select.select([master], [], [], remaining)
+            if not ready:
+                continue
             try:
                 data = os.read(master, 4096)
             except OSError:
@@ -22,7 +34,7 @@ def run_pty(args, env):
             if not data:
                 break
             output += data
-        status = process.wait(timeout=10)
+        status = process.wait(timeout=timeout)
     finally:
         os.close(master)
     return status, output
