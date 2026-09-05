@@ -235,7 +235,7 @@ set_update_mode() {
 
 remove_warp_hook() {
     local rc
-    for rc in "${ROOT}/etc/bash.bashrc" "${ROOT}/etc/zsh/zshrc" "${ROOT}/etc/fish/config.fish"; do
+    for rc in "${ROOT}/etc/bash.bashrc" "${ROOT}/etc/zsh/zshrc" "${ROOT}/etc/zsh/zshenv" "${ROOT}/etc/fish/config.fish"; do
         if [[ -f "$rc" ]] && grep -Fqx '# BEGIN Foxly MOTD Warp' "$rc"; then
             sed -i.foxly-motd-bak '/^# BEGIN Foxly MOTD Warp$/,/^# END Foxly MOTD Warp$/d' "$rc"
             rm -f "$rc.foxly-motd-bak"

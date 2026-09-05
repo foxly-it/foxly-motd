@@ -192,14 +192,18 @@ Die Abfragen von DNS, systemd und Docker besitzen jeweils ein Zeitlimit von zwei
 ### Warp Terminal und Proxmox LXC
 
 Bei Warp kann die SSH-Shell die normale PAM-Loginanzeige umgehen. Der Installer
-richtet deshalb für Bash, Zsh und Fish einen Startaufruf in der jeweiligen
-systemweiten interaktiven Rc-Datei ein: `/etc/bash.bashrc`, `/etc/zsh/zshrc`
-beziehungsweise `/etc/fish/config.fish`. Zsh und Fish werden dabei nur
-eingerichtet, wenn die Shell zum Installationszeitpunkt bereits vorhanden ist
-(erkennbar an `/etc/zsh` beziehungsweise `/etc/fish`); Bash ist auf
-Debian/Ubuntu immer vorhanden. Wird eine dieser Shells erst nach der
-Installation nachgerüstet, richtet der nächste `foxly-motd update`-Lauf den
-Startaufruf ein.
+richtet deshalb für Bash, Zsh und Fish einen Startaufruf ein: `/etc/bash.bashrc`,
+`/etc/zsh/zshenv` beziehungsweise `/etc/fish/config.fish`. Für Zsh wird bewusst
+`zshenv` statt `zshrc` verwendet: `zshrc` ist eine globale Rc-Datei, die manche
+Zsh-Sitzungen – beobachtet bei Warps eigenem SSH-Shell-Bootstrap – gar nicht
+lesen, während `zshenv` von jedem Zsh-Aufruf uneingeschränkt gelesen wird.
+Zsh und Fish werden dabei nur eingerichtet, wenn die Shell zum
+Installationszeitpunkt bereits vorhanden ist (erkennbar an `/etc/zsh`
+beziehungsweise `/etc/fish`); Bash ist auf Debian/Ubuntu immer vorhanden. Wird
+eine dieser Shells erst nach der Installation nachgerüstet, richtet der
+nächste `foxly-motd update`-Lauf den Startaufruf ein. Ein von einer älteren
+Version in `zshrc` hinterlassener Hook wird beim nächsten Update automatisch
+nach `zshenv` migriert.
 
 Der Hook zeigt das Dashboard in interaktiven Warp-SSH-Sitzungen einmal pro
 Terminal an; Warps Eingabeeditor, Blöcke und Vervollständigung bleiben

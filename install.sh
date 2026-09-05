@@ -279,11 +279,22 @@ add_warp_hook() {
     fi
     printf '\n# BEGIN Foxly MOTD Warp\n%s\n# END Foxly MOTD Warp\n' "$body" >> "$rc"
 }
+remove_warp_hook_from() {
+    local rc=$1
+    [[ -f "$rc" ]] && grep -Fqx '# BEGIN Foxly MOTD Warp' "$rc" 2> /dev/null || return 0
+    sed -i.foxly-motd-bak '/^# BEGIN Foxly MOTD Warp$/,/^# END Foxly MOTD Warp$/d' "$rc"
+    rm -f "$rc.foxly-motd-bak"
+}
 add_warp_hook "${ROOT}/etc/bash.bashrc" 'if [ -r /usr/local/lib/foxly-motd/warp ]; then
     . /usr/local/lib/foxly-motd/warp
 fi'
 if [[ -d "${ROOT}/etc/zsh" ]]; then
-    add_warp_hook "${ROOT}/etc/zsh/zshrc" 'if [ -r /usr/local/lib/foxly-motd/warp ]; then
+    # zshrc is a global rc file some zsh sessions skip (observed with Warp's
+    # own SSH shell bootstrap); zshenv is read unconditionally by every zsh
+    # invocation, so it is the reliable hook point. Migrate any hook a prior
+    # version left in zshrc.
+    remove_warp_hook_from "${ROOT}/etc/zsh/zshrc"
+    add_warp_hook "${ROOT}/etc/zsh/zshenv" 'if [ -r /usr/local/lib/foxly-motd/warp ]; then
     . /usr/local/lib/foxly-motd/warp
 fi'
 fi

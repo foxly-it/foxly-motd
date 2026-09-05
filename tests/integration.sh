@@ -33,7 +33,11 @@ assert_equal_box_widths() {
 
 mkdir -p "$ROOT/etc/zsh" "$ROOT/etc/fish"
 printf '# Existing shell settings\n' > "$ROOT/etc/bash.bashrc"
-printf '# Existing zsh settings\n' > "$ROOT/etc/zsh/zshrc"
+printf '# Existing zsh settings\n' > "$ROOT/etc/zsh/zshenv"
+# Simulates a hook left by an older release: zshrc is a global rc file some
+# zsh sessions (observed with Warp's own SSH bootstrap) never read, so the
+# installer must migrate it to zshenv rather than leaving it stuck here.
+printf '# BEGIN Foxly MOTD Warp\nif [ -r /usr/local/lib/foxly-motd/warp ]; then\n    . /usr/local/lib/foxly-motd/warp\nfi\n# END Foxly MOTD Warp\n' > "$ROOT/etc/zsh/zshrc"
 printf '# Existing fish settings\n' > "$ROOT/etc/fish/config.fish"
 
 printf 'Test: clean installation\n'
@@ -46,8 +50,9 @@ assert_file "$ROOT/usr/local/lib/foxly-motd/warp"
 assert_file "$ROOT/usr/local/lib/foxly-motd/warp.fish"
 assert_contains "$ROOT/etc/bash.bashrc" '# Existing shell settings'
 assert_contains "$ROOT/etc/bash.bashrc" '# BEGIN Foxly MOTD Warp'
-assert_contains "$ROOT/etc/zsh/zshrc" '# Existing zsh settings'
-assert_contains "$ROOT/etc/zsh/zshrc" '# BEGIN Foxly MOTD Warp'
+assert_contains "$ROOT/etc/zsh/zshenv" '# Existing zsh settings'
+assert_contains "$ROOT/etc/zsh/zshenv" '# BEGIN Foxly MOTD Warp'
+assert_not_contains "$ROOT/etc/zsh/zshrc" '# BEGIN Foxly MOTD Warp'
 assert_contains "$ROOT/etc/fish/config.fish" '# Existing fish settings'
 assert_contains "$ROOT/etc/fish/config.fish" '# BEGIN Foxly MOTD Warp'
 assert_file "$ROOT/etc/systemd/system/foxly-motd-cache.timer"
@@ -65,7 +70,7 @@ FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --no-refresh --no-timers
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=de
 
 [[ $(grep -Fc '# BEGIN Foxly MOTD Warp' "$ROOT/etc/bash.bashrc") == 1 ]] || fail 'Duplicate Warp hook (bash)'
-[[ $(grep -Fc '# BEGIN Foxly MOTD Warp' "$ROOT/etc/zsh/zshrc") == 1 ]] || fail 'Duplicate Warp hook (zsh)'
+[[ $(grep -Fc '# BEGIN Foxly MOTD Warp' "$ROOT/etc/zsh/zshenv") == 1 ]] || fail 'Duplicate Warp hook (zsh)'
 [[ $(grep -Fc '# BEGIN Foxly MOTD Warp' "$ROOT/etc/fish/config.fish") == 1 ]] || fail 'Duplicate Warp hook (fish)'
 
 printf 'Test: status and preview\n'
@@ -408,7 +413,7 @@ assert_contains "$TEST_DIR/cache/packages" security=2
 printf 'Test: install without Zsh/Fish present skips their hooks\n'
 NOSHELL_ROOT="$TEST_DIR/noshell-root"
 FOXLY_MOTD_ROOT="$NOSHELL_ROOT" bash "$PROJECT_DIR/install.sh" --no-refresh --no-timers
-[[ ! -e "$NOSHELL_ROOT/etc/zsh/zshrc" ]] || fail 'Zsh hook created without /etc/zsh present'
+[[ ! -e "$NOSHELL_ROOT/etc/zsh/zshenv" ]] || fail 'Zsh hook created without /etc/zsh present'
 [[ ! -e "$NOSHELL_ROOT/etc/fish/config.fish" ]] || fail 'Fish hook created without /etc/fish present'
 
 printf 'Test: rollback to pre-Warp installation removes the hook\n'
@@ -428,8 +433,8 @@ FOXLY_MOTD_ROOT="$ROOT" "$ROOT/usr/local/sbin/foxly-motd" uninstall
 [[ ! -e "$ROOT/usr/local/lib/foxly-motd/warp.fish" ]] || fail 'Fish Warp helper was not removed'
 assert_not_contains "$ROOT/etc/bash.bashrc" '# BEGIN Foxly MOTD Warp'
 assert_contains "$ROOT/etc/bash.bashrc" '# Existing shell settings'
-assert_not_contains "$ROOT/etc/zsh/zshrc" '# BEGIN Foxly MOTD Warp'
-assert_contains "$ROOT/etc/zsh/zshrc" '# Existing zsh settings'
+assert_not_contains "$ROOT/etc/zsh/zshenv" '# BEGIN Foxly MOTD Warp'
+assert_contains "$ROOT/etc/zsh/zshenv" '# Existing zsh settings'
 assert_not_contains "$ROOT/etc/fish/config.fish" '# BEGIN Foxly MOTD Warp'
 assert_contains "$ROOT/etc/fish/config.fish" '# Existing fish settings'
 assert_file "$ROOT/etc/default/foxly-motd"
