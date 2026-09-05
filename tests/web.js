@@ -87,6 +87,11 @@ check(html.includes('class="skip-link"') && html.includes('href="#content"') && 
 check(html.includes('class="cta"') && (html.match(/class="cta"/g) || []).length === 1, "Call-to-action section missing");
 check(html.includes('<footer class="footer">') && html.includes('<nav class="footer-links"'), "Footer navigation missing");
 check(docsPage.includes('class="skip-link"') && imprintPage.includes('class="skip-link"') && privacyPage.includes('class="skip-link"'), "Skip link missing on a sub-page");
+check(html.includes('class="nav-dropdown"') && html.includes('class="nav-home') && docsPage.includes('class="nav-dropdown') && imprintPage.includes('class="nav-home"') && privacyPage.includes('class="nav-home"'), "Dropdown navigation missing on a page");
+check(docsPage.includes('docs-hero') && docsPage.includes('class="docs-status"'), "Docs hero status card missing");
+check((docsPage.match(/class="code-block"/g) || []).length === 3, "Styled code blocks missing from docs");
+check(docsPage.includes('class="steps"') && docsPage.includes('class="checklist"'), "Steps or checklist missing from docs");
+check(familyScript.includes("IntersectionObserver"), "Docs table-of-contents scroll spy missing");
 inlineScripts.forEach(script => new Function(script));
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
 check(!html.includes("http://"), "Insecure HTTP URL found");
