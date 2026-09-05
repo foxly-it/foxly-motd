@@ -83,6 +83,10 @@ check(projectSummary.version === "v2.0.0" && projectSummary.downloads === 12 && 
 check(projectSummary.commit.title === "Ship release" && projectSummary.commit.sha === "abcdef1" && projectSummary.pull.number === 4, "Commit or PR activity summary is incorrect");
 check(projectSummary.release.entries.length === 1 && projectSummary.release.entries[0].pr === "4" && projectSummary.release.entries[0].author === "foxly-it", "Release log entries are incorrect");
 check(html.includes("Existing values in /etc/default/foxly-motd are retained"), "Configuration migration notice missing");
+check(html.includes('class="skip-link"') && html.includes('href="#content"') && html.includes('<main id="content">'), "Skip link missing");
+check(html.includes('class="cta"') && (html.match(/class="cta"/g) || []).length === 1, "Call-to-action section missing");
+check(html.includes('<footer class="footer">') && html.includes('<nav class="footer-links"'), "Footer navigation missing");
+check(docsPage.includes('class="skip-link"') && imprintPage.includes('class="skip-link"') && privacyPage.includes('class="skip-link"'), "Skip link missing on a sub-page");
 inlineScripts.forEach(script => new Function(script));
 check(installer.includes("sha256sum"), "Bootstrap installer does not verify SHA-256");
 check(!html.includes("http://"), "Insecure HTTP URL found");
