@@ -31,12 +31,25 @@ assert_equal_box_widths() {
     ' "$1" || fail "Box rows do not have equal terminal display widths: $1"
 }
 
+mkdir -p "$ROOT/etc/zsh" "$ROOT/etc/fish"
+printf '# Existing shell settings\n' > "$ROOT/etc/bash.bashrc"
+printf '# Existing zsh settings\n' > "$ROOT/etc/zsh/zshrc"
+printf '# Existing fish settings\n' > "$ROOT/etc/fish/config.fish"
+
 printf 'Test: clean installation\n'
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --language de --no-refresh --no-timers
 assert_file "$ROOT/usr/local/sbin/foxly-motd"
 assert_file "$ROOT/etc/update-motd.d/00-foxly-header"
 assert_file "$ROOT/etc/update-motd.d/10-foxly-sysinfo"
 assert_file "$ROOT/etc/default/foxly-motd"
+assert_file "$ROOT/usr/local/lib/foxly-motd/warp"
+assert_file "$ROOT/usr/local/lib/foxly-motd/warp.fish"
+assert_contains "$ROOT/etc/bash.bashrc" '# Existing shell settings'
+assert_contains "$ROOT/etc/bash.bashrc" '# BEGIN Foxly MOTD Warp'
+assert_contains "$ROOT/etc/zsh/zshrc" '# Existing zsh settings'
+assert_contains "$ROOT/etc/zsh/zshrc" '# BEGIN Foxly MOTD Warp'
+assert_contains "$ROOT/etc/fish/config.fish" '# Existing fish settings'
+assert_contains "$ROOT/etc/fish/config.fish" '# BEGIN Foxly MOTD Warp'
 assert_file "$ROOT/etc/systemd/system/foxly-motd-cache.timer"
 assert_contains "$ROOT/var/lib/foxly-motd/version" dev
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=de
@@ -50,6 +63,10 @@ assert_contains "$ROOT/etc/default/foxly-motd" PACKAGE_NAME_LIMIT=5
 assert_contains "$ROOT/etc/default/foxly-motd" SHOW_FRAME=yes
 FOXLY_MOTD_ROOT="$ROOT" bash "$PROJECT_DIR/install.sh" --no-refresh --no-timers
 assert_contains "$ROOT/etc/default/foxly-motd" MOTD_LANGUAGE=de
+
+[[ $(grep -Fc '# BEGIN Foxly MOTD Warp' "$ROOT/etc/bash.bashrc") == 1 ]] || fail 'Duplicate Warp hook (bash)'
+[[ $(grep -Fc '# BEGIN Foxly MOTD Warp' "$ROOT/etc/zsh/zshrc") == 1 ]] || fail 'Duplicate Warp hook (zsh)'
+[[ $(grep -Fc '# BEGIN Foxly MOTD Warp' "$ROOT/etc/fish/config.fish") == 1 ]] || fail 'Duplicate Warp hook (fish)'
 
 printf 'Test: status and preview\n'
 FOXLY_MOTD_ROOT="$ROOT" "$ROOT/usr/local/sbin/foxly-motd" status > "$TEST_DIR/status"
@@ -388,9 +405,33 @@ PATH="$MOCK_BIN:$PATH" FOXLY_MOTD_CACHE_DIR="$TEST_DIR/cache" \
 assert_contains "$TEST_DIR/cache/packages" updates=3
 assert_contains "$TEST_DIR/cache/packages" security=2
 
+printf 'Test: install without Zsh/Fish present skips their hooks\n'
+NOSHELL_ROOT="$TEST_DIR/noshell-root"
+FOXLY_MOTD_ROOT="$NOSHELL_ROOT" bash "$PROJECT_DIR/install.sh" --no-refresh --no-timers
+[[ ! -e "$NOSHELL_ROOT/etc/zsh/zshrc" ]] || fail 'Zsh hook created without /etc/zsh present'
+[[ ! -e "$NOSHELL_ROOT/etc/fish/config.fish" ]] || fail 'Fish hook created without /etc/fish present'
+
+printf 'Test: rollback to pre-Warp installation removes the hook\n'
+ROLLBACK_ROOT="$TEST_DIR/rollback-root"
+FOXLY_MOTD_ROOT="$ROLLBACK_ROOT" bash "$PROJECT_DIR/install.sh" --no-refresh --no-timers
+mkdir -p "$ROLLBACK_ROOT/var/backups/foxly-motd"
+tar -czf "$ROLLBACK_ROOT/var/backups/foxly-motd/upgrade-old.tar.gz" -C "$ROLLBACK_ROOT" var/lib/foxly-motd/version
+FOXLY_MOTD_ROOT="$ROLLBACK_ROOT" "$ROLLBACK_ROOT/usr/local/sbin/foxly-motd" rollback
+[[ ! -e "$ROLLBACK_ROOT/usr/local/lib/foxly-motd/warp" ]] || fail 'Rollback retained Warp helper'
+[[ ! -e "$ROLLBACK_ROOT/usr/local/lib/foxly-motd/warp.fish" ]] || fail 'Rollback retained Fish Warp helper'
+assert_not_contains "$ROLLBACK_ROOT/etc/bash.bashrc" '# BEGIN Foxly MOTD Warp'
+
 printf 'Test: uninstall retains configuration and backups\n'
 FOXLY_MOTD_ROOT="$ROOT" "$ROOT/usr/local/sbin/foxly-motd" uninstall
 [[ ! -e "$ROOT/usr/local/sbin/foxly-motd" ]] || fail 'CLI was not removed'
+[[ ! -e "$ROOT/usr/local/lib/foxly-motd/warp" ]] || fail 'Warp helper was not removed'
+[[ ! -e "$ROOT/usr/local/lib/foxly-motd/warp.fish" ]] || fail 'Fish Warp helper was not removed'
+assert_not_contains "$ROOT/etc/bash.bashrc" '# BEGIN Foxly MOTD Warp'
+assert_contains "$ROOT/etc/bash.bashrc" '# Existing shell settings'
+assert_not_contains "$ROOT/etc/zsh/zshrc" '# BEGIN Foxly MOTD Warp'
+assert_contains "$ROOT/etc/zsh/zshrc" '# Existing zsh settings'
+assert_not_contains "$ROOT/etc/fish/config.fish" '# BEGIN Foxly MOTD Warp'
+assert_contains "$ROOT/etc/fish/config.fish" '# Existing fish settings'
 assert_file "$ROOT/etc/default/foxly-motd"
 find "$ROOT/var/backups/foxly-motd" -type f -name '*.tar.gz' -print -quit | grep -q . || fail 'Backups were removed'
 

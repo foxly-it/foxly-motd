@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Sourced by /etc/bash.bashrc or /etc/zsh/zshrc; keep normal SSH and
+# noninteractive jobs quiet. POSIX test syntax works unchanged under zsh.
+if [[ $- == *i* && -t 1 && ${TERM_PROGRAM:-} == WarpTerminal &&
+    -n ${SSH_CONNECTION:-} && -n ${SSH_TTY:-} &&
+    ${FOXLY_MOTD_WARP_TTY:-} != "$SSH_TTY" &&
+    ! -e "$HOME/.hushlogin" && -x ${FOXLY_MOTD_ROOT:-}/usr/local/sbin/foxly-motd ]]; then
+    export FOXLY_MOTD_WARP_TTY="$SSH_TTY"
+    "${FOXLY_MOTD_ROOT:-}/usr/local/sbin/foxly-motd" preview || :
+fi
