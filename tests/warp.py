@@ -69,7 +69,7 @@ def exercise_posix(shell):
             zdotdir.mkdir()
             rc = zdotdir / '.zshrc'
             base['ZDOTDIR'] = str(zdotdir)
-            respawn = f'ZDOTDIR="{zdotdir}" zsh -ic :'
+            respawn = f'ZDOTDIR="{zdotdir}" zsh --no-globalrcs -ic :'
         else:
             rc = root / 'rc'
             respawn = f'bash --noprofile --rcfile "{rc}" -ic :'
@@ -77,7 +77,9 @@ def exercise_posix(shell):
 
         def args(interactive, command):
             if shell == 'zsh':
-                return ['zsh'] + (['-ic'] if interactive else ['-c']) + [command]
+                # --no-globalrcs: exercise our hook in isolation, without the
+                # target system's own /etc/zsh/zshrc (e.g. compinit prompts).
+                return ['zsh', '--no-globalrcs'] + (['-ic'] if interactive else ['-c']) + [command]
             base_args = ['bash', '--noprofile', '--rcfile', str(rc)]
             return base_args + (['-ic'] if interactive else ['-c']) + [command]
 
