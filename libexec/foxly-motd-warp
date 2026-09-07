@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sourced by /etc/bash.bashrc or /etc/zsh/zshrc; keep normal SSH and
+# Sourced by /etc/bash.bashrc or /etc/zsh/zshenv; keep normal SSH and
 # noninteractive jobs quiet. POSIX test syntax works unchanged under zsh.
 if [[ $- == *i* && -t 1 && ${TERM_PROGRAM:-} == WarpTerminal &&
     -n ${SSH_CONNECTION:-} && -n ${SSH_TTY:-} &&

@@ -67,7 +67,10 @@ def exercise_posix(shell):
         if shell == 'zsh':
             zdotdir = root / 'zdotdir'
             zdotdir.mkdir()
-            rc = zdotdir / '.zshrc'
+            # Mirror the installer's /etc/zsh/zshenv hook point.  Zsh reads
+            # .zshenv for every invocation, including Warp's SSH bootstrap;
+            # --no-globalrcs only isolates the test from the host's files.
+            rc = zdotdir / '.zshenv'
             base['ZDOTDIR'] = str(zdotdir)
             respawn = f'ZDOTDIR="{zdotdir}" zsh --no-globalrcs -ic :'
         else:
@@ -77,8 +80,9 @@ def exercise_posix(shell):
 
         def args(interactive, command):
             if shell == 'zsh':
-                # --no-globalrcs: exercise our hook in isolation, without the
-                # target system's own /etc/zsh/zshrc (e.g. compinit prompts).
+                # Let Zsh load .zshenv itself.  --no-globalrcs isolates the
+                # test from the host's /etc/zsh files without disabling user
+                # startup files under the temporary ZDOTDIR.
                 return ['zsh', '--no-globalrcs'] + (['-ic'] if interactive else ['-c']) + [command]
             base_args = ['bash', '--noprofile', '--rcfile', str(rc)]
             return base_args + (['-ic'] if interactive else ['-c']) + [command]
