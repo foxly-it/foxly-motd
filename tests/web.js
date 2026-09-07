@@ -56,6 +56,8 @@ check(html.includes("@keyframes terminal-settle") && html.includes("rotateY(-8de
 check(html.includes("(hover:hover) and (pointer:fine)"), "Terminal hover capability guard missing");
 check(html.includes('id="configurator"') && html.includes('id="motd-configurator"'), "Visual configurator missing");
 check(html.includes('id="project"') && html.includes('id="project-version"') && html.includes('id="project-downloads"'), "Live project statistics missing");
+const sectionOrder = ["configurator", "install", "features", "project"].map(id => html.indexOf(`<section id="${id}"`));
+check(sectionOrder.every((position, index) => position >= 0 && (index === 0 || position > sectionOrder[index - 1])), "Homepage sections are not ordered with dashboard and installation directly below the hero");
 check((html.match(/class="activity-card"/g) || []).length === 3, "Three-column project activity grid missing");
 check(html.includes("releases?per_page=100") && html.includes("commits?sha=main&per_page=1") && html.includes("pulls?state=closed"), "GitHub activity endpoints missing");
 check(html.includes("download_count") && html.includes("sessionStorage") && html.includes("600000"), "Live download count or API cache missing");
