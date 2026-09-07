@@ -76,7 +76,7 @@
         .nav-dropdown>summary::-webkit-details-marker{display:none}
         .nav-dropdown>summary::after{width:6px;height:6px;margin:-3px 1px 0 8px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;content:"";transform:rotate(45deg);transition:transform .18s ease}
         .nav-dropdown[open]>summary::after{margin-top:3px;transform:rotate(225deg)}
-        .nav-dropdown-menu{position:absolute;z-index:30;top:calc(100% + 9px);right:0;left:auto;display:grid;min-width:210px;overflow:hidden;border:1px solid var(--border);border-radius:13px;background:rgba(15,22,29,.98);padding:6px;box-shadow:0 24px 65px rgba(0,0,0,.42)}
+        .nav-dropdown-menu{position:absolute;z-index:30;top:calc(100% + 9px);left:0;display:grid;min-width:210px;max-width:calc(100vw - 40px);overflow:hidden;border:1px solid var(--border);border-radius:13px;background:rgba(15,22,29,.98);padding:6px;box-shadow:0 24px 65px rgba(0,0,0,.42)}
         .nav-dropdown-menu a{border-radius:8px;color:var(--muted);padding:9px 11px;text-decoration:none;font-size:.8rem;white-space:nowrap}
         .nav-dropdown-menu a:hover,.nav-dropdown-menu a:focus-visible{background:var(--soft);color:var(--text);outline:none}
     </style>
