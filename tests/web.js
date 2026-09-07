@@ -6,6 +6,7 @@ const html = fs.readFileSync(path.join(root, "docs", "index.html"), "utf8");
 const cname = fs.readFileSync(path.join(root, "docs", "CNAME"), "utf8").trim();
 const installer = fs.readFileSync(path.join(root, "docs", "install.sh"), "utf8");
 const docsPage = fs.readFileSync(path.join(root, "docs", "docs.html"), "utf8");
+const familyCss = fs.readFileSync(path.join(root, "docs", "family-pages.css"), "utf8");
 const privacyPage = fs.readFileSync(path.join(root, "docs", "privacy.html"), "utf8");
 const imprintPage = fs.readFileSync(path.join(root, "docs", "imprint.html"), "utf8");
 const familyScript = fs.readFileSync(path.join(root, "docs", "family-pages.js"), "utf8");
@@ -55,6 +56,8 @@ check(html.includes("@keyframes terminal-settle") && html.includes("rotateY(-8de
 check(html.includes("(hover:hover) and (pointer:fine)"), "Terminal hover capability guard missing");
 check(html.includes('id="configurator"') && html.includes('id="motd-configurator"'), "Visual configurator missing");
 check(html.includes('id="project"') && html.includes('id="project-version"') && html.includes('id="project-downloads"'), "Live project statistics missing");
+const sectionOrder = ["configurator", "install", "features", "project"].map(id => html.indexOf(`<section id="${id}"`));
+check(sectionOrder.every((position, index) => position >= 0 && (index === 0 || position > sectionOrder[index - 1])), "Homepage sections are not ordered with dashboard and installation directly below the hero");
 check((html.match(/class="activity-card"/g) || []).length === 3, "Three-column project activity grid missing");
 check(html.includes("releases?per_page=100") && html.includes("commits?sha=main&per_page=1") && html.includes("pulls?state=closed"), "GitHub activity endpoints missing");
 check(html.includes("download_count") && html.includes("sessionStorage") && html.includes("600000"), "Live download count or API cache missing");
@@ -89,6 +92,11 @@ check(html.includes('<footer class="footer">') && html.includes('<nav class="foo
 check(docsPage.includes('class="skip-link"') && imprintPage.includes('class="skip-link"') && privacyPage.includes('class="skip-link"'), "Skip link missing on a sub-page");
 check(html.includes('class="nav-dropdown"') && html.includes('class="nav-home') && docsPage.includes('class="nav-dropdown') && imprintPage.includes('class="nav-home"') && privacyPage.includes('class="nav-home"'), "Dropdown navigation missing on a page");
 check(docsPage.includes('docs-hero') && docsPage.includes('class="docs-status"'), "Docs hero status card missing");
+check(docsPage.includes('<main id="content" class="manual">') && docsPage.includes('class="actions"'), "Documentation manual hero missing");
+check((docsPage.match(/class="eyebrow"/g) || []).length === 8, "Numbered documentation chapters missing");
+check(docsPage.includes('class="manual-cards"') && docsPage.includes('class="manual-callout"') && docsPage.includes('class="manual-table"'), "Documentation manual components missing");
+check(familyCss.includes('.content section{padding:58px 0;border:0;border-top:1px solid var(--border)') && familyCss.includes('.toc{position:static;grid-template-columns:repeat(3,1fr)'), "RootGuard-aligned documentation layout missing");
+check(familyCss.includes('.nav-dropdown-menu{position:absolute') && familyCss.includes('left:0') && !familyCss.includes('.links{flex:1;overflow-x:auto}'), "Mobile dropdown overflow fix missing");
 check((docsPage.match(/class="code-block"/g) || []).length === 3, "Styled code blocks missing from docs");
 check(docsPage.includes('class="steps"') && docsPage.includes('class="checklist"'), "Steps or checklist missing from docs");
 check(familyScript.includes("IntersectionObserver"), "Docs table-of-contents scroll spy missing");
